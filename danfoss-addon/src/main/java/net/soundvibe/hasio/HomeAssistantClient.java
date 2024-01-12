@@ -28,6 +28,7 @@ public class HomeAssistantClient {
         this.token = token;
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.ALWAYS)
+                .version(HttpClient.Version.HTTP_1_1)
                 .build();
     }
 
