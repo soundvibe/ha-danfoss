@@ -75,11 +75,18 @@ public class Bootstrapper {
             return token;
         }
 
+        try {
+            var p = new ProcessBuilder("/bin/bash", "token.sh").start();
+            p.wait(100);
+        } catch (IOException | InterruptedException e) {
+            logger.warn("failed to execute token.sh", e);
+        }
+
         if (Files.exists(TOKEN_FILE)) {
             try {
                 token = Files.readString(TOKEN_FILE);
                 if (token != null && !token.isEmpty()) {
-                    return token;
+                    return token.trim();
                 }
             } catch (IOException e) {
                 logger.error("failed to read token file", e);
