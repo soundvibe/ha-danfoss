@@ -9,4 +9,4 @@ COPY ha-danfoss-addon-0.0.1.jar /
 
 EXPOSE 9090
 
-CMD ["java", "-showversion", "-jar", "/ha-danfoss-addon-0.0.1.jar"]
+CMD ["java -DSUPERVISOR_TOKEN=${env.SUPERVISOR_TOKEN} -jar /ha-danfoss-addon-0.0.1.jar"]

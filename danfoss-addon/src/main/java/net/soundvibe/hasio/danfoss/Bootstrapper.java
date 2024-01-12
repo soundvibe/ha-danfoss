@@ -32,9 +32,9 @@ public class Bootstrapper {
         logger.info("env vars:");
         System.getenv().forEach((k, v) -> logger.info("{}={}", k,v));
 
-        var token = System.getenv("SUPERVISOR_TOKEN");
+        var token = System.getProperty("SUPERVISOR_TOKEN", "");
         logger.info("SUPERVISOR_TOKEN: {}", token);
-        if (token == null || token.isEmpty()) {
+        if (token.isEmpty()) {
             logger.warn("authorization token not found");
         } else {
             var homeAssistantClient = new HomeAssistantClient(
