@@ -27,7 +27,6 @@ public class Application {
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
     public static final Path CONFIG_FILE = Paths.get("/share/danfoss-icon/danfoss_config.json");
-    public static final Path TOKEN_FILE = Paths.get("token.txt");
     public static final List<Path> CONFIG_FILES = List.of(CONFIG_FILE, Paths.get("danfoss_config.json"));
     public static void main(String[] args) throws IOException {
         logger.info("starting danfoss icon addon...");

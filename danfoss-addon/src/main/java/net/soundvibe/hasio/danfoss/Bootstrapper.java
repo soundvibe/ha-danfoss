@@ -9,13 +9,9 @@ import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import static net.soundvibe.hasio.Application.TOKEN_FILE;
 
 public class Bootstrapper {
 
@@ -75,24 +71,6 @@ public class Bootstrapper {
             return token;
         }
 
-        try {
-            new ProcessBuilder("/bin/bash","token.sh").start();
-            Thread.sleep(100);
-        } catch (IOException | InterruptedException e) {
-            logger.warn("failed to execute token.sh", e);
-        }
-
-        if (Files.exists(TOKEN_FILE)) {
-            try {
-                token = Files.readString(TOKEN_FILE);
-                if (token != null && !token.isEmpty()) {
-                    return token.trim();
-                }
-            } catch (IOException e) {
-                logger.error("failed to read token file", e);
-            }
-        }
-
-        return "";
+        return System.getProperty("SUPERVISOR_TOKEN", "");
     }
 }
