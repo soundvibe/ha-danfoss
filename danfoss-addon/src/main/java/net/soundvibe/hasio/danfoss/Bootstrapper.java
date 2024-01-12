@@ -39,18 +39,23 @@ public class Bootstrapper {
                     .ifPresentOrElse(ctx::json, () -> ctx.status(HttpStatus.NOT_FOUND));
         });
 
-        var homeAssistantClient = new HomeAssistantClient(
-                "http://supervisor/core/api",
-                System.getProperty("SUPERVISOR_TOKEN", ""));
-        executorService.scheduleAtFixedRate(() -> {
-            try {
-                for (IconRoom room : masterHandler.listRooms()) {
-                    homeAssistantClient.upsertRoomThermostat(room);
+        var token = System.getenv("SUPERVISOR_TOKEN");
+        if (token == null || token.isEmpty()) {
+            logger.warn("authorization token not found");
+        } else {
+            var homeAssistantClient = new HomeAssistantClient(
+                    "http://supervisor/core/api",
+                    System.getProperty("SUPERVISOR_TOKEN", ""));
+            executorService.scheduleAtFixedRate(() -> {
+                try {
+                    for (IconRoom room : masterHandler.listRooms()) {
+                        homeAssistantClient.upsertRoomThermostat(room);
+                    }
+                    logger.info("sensors updated successfully");
+                } catch (Exception e) {
+                    logger.error("sensor update error", e);
                 }
-                logger.info("sensors updated successfully");
-            } catch (Exception e) {
-                logger.error("sensor update error", e);
-            }
-        }, 1, 1, TimeUnit.MINUTES);
+            }, 1, 1, TimeUnit.MINUTES);
+        }
     }
 }

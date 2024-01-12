@@ -33,7 +33,7 @@ public class HomeAssistantClient {
 
     public void upsertRoomThermostat(IconRoom room) {
         if (this.token.isEmpty()) {
-            logger.debug("no token, skipping");
+            logger.info("no token, skipping");
             return;
         }
 
@@ -67,6 +67,7 @@ public class HomeAssistantClient {
 
         } catch (Exception e) {
             logger.error("unable to upsert Home Assistant states", e);
+            throw new RuntimeException(e);
         }
     }
 }
