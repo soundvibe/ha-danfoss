@@ -1,6 +1,6 @@
 name: "Danfoss Icon Home Assistant Addon"
 description: "Danfoss Icon Home Assistant Addon"
-version: "0.0.17"
+version: "0.0.18"
 slug: "danfoss"
 init: false
 url: "https://github.com/soundvibe/ha-danfoss"
