@@ -9,9 +9,13 @@ import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import static net.soundvibe.hasio.Application.TOKEN_FILE;
 
 public class Bootstrapper {
 
@@ -29,10 +33,8 @@ public class Bootstrapper {
         var masterHandler = new IconMasterHandler(appConfig.privateKey(), executorService);
         masterHandler.scanRooms(appConfig.peerId());
         logger.info("rooms scanned: {}", appConfig.peerId());
-        logger.info("env vars:");
-        System.getenv().forEach((k, v) -> logger.info("{}={}", k,v));
 
-        var token = System.getProperty("SUPERVISOR_TOKEN", "");
+        var token = resolveToken();
         logger.info("SUPERVISOR_TOKEN: {}", token);
         if (token.isEmpty()) {
             logger.warn("authorization token not found");
@@ -65,5 +67,25 @@ public class Bootstrapper {
                     .findAny()
                     .ifPresentOrElse(ctx::json, () -> ctx.status(HttpStatus.NOT_FOUND));
         });
+    }
+
+    private String resolveToken() {
+        var token = System.getenv("SUPERVISOR_TOKEN");
+        if (token != null && !token.isEmpty()) {
+            return token;
+        }
+
+        if (Files.exists(TOKEN_FILE)) {
+            try {
+                token = Files.readString(TOKEN_FILE);
+                if (token != null && !token.isEmpty()) {
+                    return token;
+                }
+            } catch (IOException e) {
+                logger.error("failed to read token file", e);
+            }
+        }
+
+        return "";
     }
 }
