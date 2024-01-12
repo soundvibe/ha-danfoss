@@ -45,7 +45,7 @@ public class Bootstrapper {
         } else {
             var homeAssistantClient = new HomeAssistantClient(
                     "http://supervisor/core/api",
-                    System.getProperty("SUPERVISOR_TOKEN", ""));
+                    token);
             executorService.scheduleAtFixedRate(() -> {
                 try {
                     for (IconRoom room : masterHandler.listRooms()) {
