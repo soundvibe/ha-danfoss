@@ -12,9 +12,9 @@ public record IconRoom(String name, int number, double temperature, double tempe
                 "friendly_name", String.format("%s temperature", name),
                 "device_class", "temperature",
                 "state_class", "measurement",
-                "battery_level", String.valueOf(batteryPercent),
-                "temperature_home", String.valueOf(temperatureHome),
-                "temperature_away", String.valueOf(temperatureAway)
+                "battery_level", String.valueOf(batteryPercent)
+                //"temperature_home", String.valueOf(temperatureHome),
+                //"temperature_away", String.valueOf(temperatureAway)
         ));
     }
 

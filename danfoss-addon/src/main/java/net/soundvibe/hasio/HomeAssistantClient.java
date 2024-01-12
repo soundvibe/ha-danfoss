@@ -19,8 +19,10 @@ public class HomeAssistantClient {
 
     public HomeAssistantClient(String endpoint, String token) {
         this.endpoint = endpoint;
-        this.token = token;
-        this.httpClient = new OkHttpClient.Builder().build();
+        this.token = "Bearer " + token;
+        this.httpClient = new OkHttpClient.Builder()
+                .followRedirects(false)
+                .build();
     }
 
     public void upsertRoomThermostat(IconRoom room) {
@@ -37,7 +39,7 @@ public class HomeAssistantClient {
             // temperature
             var request = new Request.Builder()
                     .url(String.format("%s/states/%s", this.endpoint, sensorName))
-                    .header("Authorization", String.format("Bearer %s", this.token))
+                    .header("Authorization", this.token)
                     .header("Content-Type", "application/json")
                     .post(body)
                     .build();
@@ -48,7 +50,8 @@ public class HomeAssistantClient {
                     return;
                 }
 
-                logger.error("[{}]: failed to upsert sensor: {}", response.code(), response.message());
+                logger.error("[{}]: failed to upsert sensor: {}\n json: {}",
+                        response.code(), response.message(), jsonString);
             }
         } catch (Exception e) {
             logger.error("unable to upsert Home Assistant states", e);

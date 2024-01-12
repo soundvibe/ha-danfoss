@@ -35,9 +35,7 @@ public class Bootstrapper {
         if (token.isEmpty()) {
             logger.warn("authorization token not found");
         } else {
-            var homeAssistantClient = new HomeAssistantClient(
-                    "http://supervisor/core/api",
-                    token);
+            var homeAssistantClient = new HomeAssistantClient("http://supervisor/core/api", token);
             logger.info("scheduling HA state updater");
 
             scheduler.scheduleAtFixedRate(() -> {
