@@ -3,7 +3,7 @@ description: "Danfoss Icon Home Assistant Addon"
 version: "0.0.1"
 slug: "danfoss"
 init: false
-url: "https://github.com/soundvibe/ha-danfoss",
+url: "https://github.com/soundvibe/ha-danfoss"
 homeassistant_api: true
 webui: "http://[HOST]:[PORT:9199]"
 watchdog: "http://[HOST]:[PORT:9199]/health"
