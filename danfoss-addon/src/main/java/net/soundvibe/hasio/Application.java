@@ -29,6 +29,7 @@ public class Application {
     public static final Path CONFIG_FILE = Paths.get("/share/danfoss-icon/danfoss_config.json");
     public static final List<Path> CONFIG_FILES = List.of(CONFIG_FILE, Paths.get("danfoss_config.json"));
     public static void main(String[] args) throws IOException {
+        logger.info("starting danfoss icon addon...");
         try {
             Files.createDirectories(Paths.get("/share/danfoss-icon/"));
         } catch (Exception e) {
@@ -91,7 +92,7 @@ public class Application {
                 });
 
 
-        app.start(9090);
+        app.start(9199);
         logger.info("started addon");
     }
 }
