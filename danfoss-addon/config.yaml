@@ -6,12 +6,8 @@ init: false
 homeassistant_api: true
 map:
   - share:rw
-stdin: true
 ports:
   9090/tcp: 9090
-webui: http://localhost:9090/
-watchdog: http://localhost:9090/health
-host_network: true
 options:
   userName: "home-assistant"
 arch:
