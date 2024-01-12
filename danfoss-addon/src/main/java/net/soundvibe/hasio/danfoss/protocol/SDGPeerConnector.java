@@ -18,7 +18,7 @@ public class SDGPeerConnector {
     private final ExecutorService singleThread = Executors.newSingleThreadExecutor();
     private final PacketHandler packetHandler;
     private final byte[] privateKey;
-    private ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduler;
     private static final Logger logger = LoggerFactory.getLogger(SDGPeerConnector.class);
     private byte[] peerId;
     private DeviSmartConnection connection;

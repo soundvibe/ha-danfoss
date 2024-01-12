@@ -47,6 +47,7 @@ public class Application {
                 return gson.fromJson(json, targetType);
             }
         };
+
         var app = Javalin.create(config -> {
             config.staticFiles.add("/public", Location.CLASSPATH);
             config.jsonMapper(gsonMapper);

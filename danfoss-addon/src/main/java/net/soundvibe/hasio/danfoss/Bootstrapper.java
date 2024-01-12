@@ -29,6 +29,9 @@ public class Bootstrapper {
         var masterHandler = new IconMasterHandler(appConfig.privateKey(), executorService);
         masterHandler.scanRooms(appConfig.peerId());
         logger.info("rooms scanned: {}", appConfig.peerId());
+        logger.info("env vars:");
+        System.getenv().forEach((k, v) -> logger.info("{}={}", k,v));
+
         var token = System.getenv("SUPERVISOR_TOKEN");
         logger.info("SUPERVISOR_TOKEN: {}", token);
         if (token == null || token.isEmpty()) {
