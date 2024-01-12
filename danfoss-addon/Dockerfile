@@ -5,8 +5,8 @@ RUN apk add --no-cache openjdk21
 RUN mkdir -p /share/danfoss-icon/
 
 # Copy the JAR file to the container
-COPY ha-danfoss-0.0.1.jar /
+COPY ha-danfoss-addon-0.0.1.jar /
 
 EXPOSE 9090
 
-CMD ["java", "-showversion", "-jar", "/ha-danfoss-0.0.1.jar"]
+CMD ["java", "-showversion", "-jar", "/ha-danfoss-addon-0.0.1.jar"]
