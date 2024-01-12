@@ -37,7 +37,7 @@ public class HomeAssistantClient {
             return;
         }
 
-        var sensorName = String.format("sensor.temp-danfoss-%d", room.number());
+        var sensorName = String.format("sensor.danfoss_%d_temperature", room.number());
 
         var sensorState = new State(String.valueOf(room.temperature()), Map.of(
                 "unit_of_measurement", "°C",
@@ -52,13 +52,19 @@ public class HomeAssistantClient {
 
         try {
             // temperature
-            this.httpClient.send(HttpRequest.newBuilder()
+            var response = this.httpClient.send(HttpRequest.newBuilder()
                             .uri(URI.create(String.format("%s/states/%s", this.endpoint, sensorName)))
-                            .POST(HttpRequest.BodyPublishers.ofString(jsonString))
                             .header("Authorization", String.format("Bearer %s", this.token))
                             .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(jsonString))
                             .build(),
-                    HttpResponse.BodyHandlers.discarding());
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                return;
+            }
+
+            logger.error("[{}]: failed to upsert sensor: {}", response.statusCode(), response.body());
+
         } catch (Exception e) {
             logger.error("unable to upsert Home Assistant states", e);
         }

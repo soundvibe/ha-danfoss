@@ -22,7 +22,7 @@ public class Bootstrapper {
     }
 
     public void bootstrap(Javalin app) {
-        var executorService = Executors.newScheduledThreadPool(16, Thread.ofVirtual().factory());
+        var executorService = Executors.newScheduledThreadPool(128, Thread.ofVirtual().factory());
         var masterHandler = new IconMasterHandler(appConfig.privateKey(), executorService);
 
         masterHandler.scanRooms(appConfig.peerId());
@@ -47,6 +47,7 @@ public class Bootstrapper {
                 for (IconRoom room : masterHandler.listRooms()) {
                     homeAssistantClient.upsertRoomThermostat(room);
                 }
+                logger.info("sensors updated successfully");
             } catch (Exception e) {
                 logger.error("sensor update error", e);
             }
