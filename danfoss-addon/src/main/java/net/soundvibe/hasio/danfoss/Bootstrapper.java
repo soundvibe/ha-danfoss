@@ -35,19 +35,8 @@ public class Bootstrapper {
         if (token.isEmpty()) {
             logger.warn("authorization token not found");
         } else {
-            var homeAssistantClient = new HomeAssistantClient("http://supervisor/core/api", token);
             logger.info("scheduling HA state updater");
-
-            scheduler.scheduleAtFixedRate(() -> {
-                try {
-                    for (IconRoom room : masterHandler.listRooms()) {
-                        homeAssistantClient.upsertRoomThermostat(room);
-                    }
-                    logger.info("sensors updated successfully");
-                } catch (Exception e) {
-                    logger.error("sensor update error", e);
-                }
-            }, 1, 1, TimeUnit.MINUTES);
+            updateHA(masterHandler, token);
         }
 
         app.get("/rooms", ctx -> {
@@ -61,6 +50,20 @@ public class Bootstrapper {
                     .findAny()
                     .ifPresentOrElse(ctx::json, () -> ctx.status(HttpStatus.NOT_FOUND));
         });
+    }
+
+    private static void updateHA(IconMasterHandler masterHandler, String token) {
+        var homeAssistantClient = new HomeAssistantClient(token);
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                for (IconRoom room : masterHandler.listRooms()) {
+                    homeAssistantClient.upsertRoomThermostat(room);
+                }
+                logger.info("sensors updated successfully");
+            } catch (Exception e) {
+                logger.error("sensor update error", e);
+            }
+        }, 1, 1, TimeUnit.MINUTES);
     }
 
     private String resolveToken() {

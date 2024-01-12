@@ -75,36 +75,27 @@ public class IconMasterHandler implements PacketHandler {
             switch (pkt.getMsgCode()) {
                 case VACATION_SETPOINT:
                     this.vacationSetPoint.set(pkt.getDecimal());
-                    //reportTemperature(CHANNEL_SETPOINT_AWAY, pkt.getDecimal());
                     break;
                 case PAUSE_SETPOINT:
                     this.pauseSetPoint.set(pkt.getDecimal());
-                    //reportTemperature(CHANNEL_SETPOINT_ANTIFREEZE, pkt.getDecimal());
                     break;
                 case GLOBAL_HARDWAREREVISION:
                     this.hardwareRevision.set(pkt.getVersion().toString());
-                    //updateProperty(Thing.PROPERTY_HARDWARE_VERSION, pkt.getVersion().toString());
                     break;
                 case GLOBAL_SOFTWAREREVISION:
                     this.softwareRevision.set(pkt.getVersion().toString());
-                    //firmwareVer = pkt.getVersion();
-                    //reportFirmware();
                     break;
                 case GLOBAL_SOFTWAREBUILDREVISION:
                     this.softwareBuildRevision.set(Short.toUnsignedInt(pkt.getShort()));
-                    //reportFirmware();
                     break;
                 case GLOBAL_SERIALNUMBER:
                     this.serialNumber.set(String.valueOf(pkt.getInt()));
-                    //updateProperty(Thing.PROPERTY_SERIAL_NUMBER, String.valueOf(pkt.getInt()));
                     break;
                 case GLOBAL_PRODUCTIONDATE:
                     this.productionDate.set(pkt.getDate(0).toInstant());
-                    //updateProperty("productionDate", DateFormat.getDateTimeInstance().format(pkt.getDate(0)));
                     break;
                 case MDG_CONNECTION_COUNT:
                     this.connectionCount.set(pkt.getByte());
-                    //updateProperty("connectionCount", String.valueOf(pkt.getByte()));
                     break;
             }
         }

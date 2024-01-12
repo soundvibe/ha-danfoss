@@ -10,15 +10,15 @@ public class HomeAssistantClient {
 
     private static final Logger logger = LoggerFactory.getLogger(HomeAssistantClient.class);
 
-    private final String endpoint;
     private final String token;
     private final OkHttpClient httpClient;
 
     private static final Gson GSON = new Gson();
     private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json");
 
-    public HomeAssistantClient(String endpoint, String token) {
-        this.endpoint = endpoint;
+    private static final String HA_CORE_API = "http://supervisor/core/api";
+
+    public HomeAssistantClient(String token) {
         this.token = "Bearer " + token;
         this.httpClient = new OkHttpClient.Builder()
                 .followRedirects(false)
@@ -36,15 +36,14 @@ public class HomeAssistantClient {
 
         try {
             var body = RequestBody.create(MEDIA_TYPE_JSON, jsonString);
-            // temperature
             var request = new Request.Builder()
-                    .url(String.format("%s/states/%s", this.endpoint, sensorName))
+                    .url(String.format("%s/states/%s", HA_CORE_API, sensorName))
                     .header("Authorization", this.token)
                     .header("Content-Type", "application/json")
                     .post(body)
                     .build();
 
-            Call call = this.httpClient.newCall(request);
+            var call = this.httpClient.newCall(request);
             try (var response = call.execute()) {
                 if (response.code() == 200 || response.code() == 201) {
                     return;

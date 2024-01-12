@@ -69,7 +69,6 @@ public class SDGPeerConnector {
             } else if (System.currentTimeMillis() - lastPacket > 15000) {
                 logger.warn("Device is inactive during 15 seconds, sending PING");
                 this.packetHandler.ping();
-              ///  thingHandler.ping();
             }
         }, 10, 10, TimeUnit.SECONDS);
 
@@ -115,7 +114,6 @@ public class SDGPeerConnector {
             try {
                 var grid = new GridConnection(privateKey, scheduler);
                 grid.connect(GridConnection.Danfoss);
-               // GridConnection grid = GridConnectionKeeper.getConnection();
                 logger.info("Connecting to peer {}", SDG.bin2hex(peerId));
                 connection.connectToRemote(grid, peerId, Dominion.ProtocolName);
             } catch (IOException | InterruptedException | ExecutionException | TimeoutException e) {
@@ -153,12 +151,12 @@ public class SDGPeerConnector {
         logger.warn("Device went offline: {}", reason);
 
         if (connection != null) {
-           // thingHandler.reportStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, reason);
             scheduleReconnect();
         }
     }
 
     private void scheduleReconnect() {
+        logger.info("schedule reconnect");
         reconnectReq = scheduler.schedule(() -> {
             connect();
         }, 10, TimeUnit.SECONDS);

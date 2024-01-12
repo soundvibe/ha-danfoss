@@ -42,43 +42,33 @@ public class IconRoomHandler implements PacketHandler {
         switch (pkt.getMsgCode()) {
             case ROOM_FLOORTEMPERATURE:
                 this.temperatureFloor.set(pkt.getDecimal());
-               // reportTemperature(CHANNEL_TEMPERATURE_FLOOR, pkt.getDecimal());
                 break;
             case ROOM_ROOMTEMPERATURE:
                 this.temperature.set(pkt.getDecimal());
-                //reportTemperature(CHANNEL_TEMPERATURE_ROOM, pkt.getDecimal());
                 break;
             case ROOM_SETPOINTATHOME:
                 this.setPointHome.set(pkt.getDecimal());
-                //reportTemperature(CHANNEL_SETPOINT_COMFORT, pkt.getDecimal());
                 break;
             case ROOM_SETPOINTASLEEP:
                 this.setPointSleep.set(pkt.getDecimal());
-                //reportTemperature(CHANNEL_SETPOINT_ASLEEP, pkt.getDecimal());
                 break;
             case ROOM_SETPOINTAWAY:
                 this.setPointAway.set(pkt.getDecimal());
-                //reportTemperature(CHANNEL_SETPOINT_ECONOMY, pkt.getDecimal());
                 break;
             case ROOM_FLOORTEMPERATUREMINIMUM:
                 this.temperatureFloorMin.set(pkt.getDecimal());
-                //reportTemperature(CHANNEL_SETPOINT_MIN_FLOOR, pkt.getDecimal());
                 break;
             case ROOM_FLOORTEMPERATUREMAXIMUM:
                 this.temperatureFloorMax.set(pkt.getDecimal());
-                //reportTemperature(CHANNEL_SETPOINT_MAX_FLOOR, pkt.getDecimal());
                 break;
             case ROOM_BATTERYINDICATIONPERCENT:
                 this.batteryPercent.set(pkt.getByte());
-                //reportDecimal(CHANNEL_BATTERY, pkt.getByte());
                 break;
             case ROOM_ROOMMODE:
                 setRoomMode(pkt.getByte());
-                //reportControlState(pkt.getByte());
                 break;
             case ROOM_ROOMCONTROL:
                 this.manualControl.set(pkt.getByte() == Icon.RoomControl.Manual);
-                //reportSwitch(CHANNEL_MANUAL_MODE, );
                 break;
             case ROOMNAME:
                 this.roomName.set(pkt.getString());
