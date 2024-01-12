@@ -22,7 +22,7 @@ public class Bootstrapper {
     }
 
     public void bootstrap(Javalin app) {
-        var executorService = Executors.newScheduledThreadPool(128, Thread.ofVirtual().factory());
+        var executorService = Executors.newScheduledThreadPool(16, Thread.ofVirtual().factory());
         var masterHandler = new IconMasterHandler(appConfig.privateKey(), executorService);
 
         masterHandler.scanRooms(appConfig.peerId());
@@ -46,7 +46,9 @@ public class Bootstrapper {
             var homeAssistantClient = new HomeAssistantClient(
                     "http://supervisor/core/api",
                     token);
-            executorService.scheduleAtFixedRate(() -> {
+            logger.info("scheduling HA state updater");
+            var scheduler = Executors.newSingleThreadScheduledExecutor();
+            scheduler.scheduleAtFixedRate(() -> {
                 try {
                     for (IconRoom room : masterHandler.listRooms()) {
                         homeAssistantClient.upsertRoomThermostat(room);
