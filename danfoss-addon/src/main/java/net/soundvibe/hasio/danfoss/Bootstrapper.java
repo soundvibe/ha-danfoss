@@ -76,7 +76,7 @@ public class Bootstrapper {
         }
 
         try {
-            new ProcessBuilder("/bin/bash", "token.sh").start();
+            new ProcessBuilder("token.sh").start();
         } catch (IOException e) {
             logger.warn("failed to execute token.sh", e);
         }
