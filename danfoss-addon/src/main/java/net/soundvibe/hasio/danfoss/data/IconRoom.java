@@ -1,7 +1,5 @@
 package net.soundvibe.hasio.danfoss.data;
 
-import net.soundvibe.hasio.data.State;
-
 import java.util.Map;
 
 public record IconRoom(String name, int number, double temperature, double temperatureHome, double temperatureAway, int batteryPercent) {

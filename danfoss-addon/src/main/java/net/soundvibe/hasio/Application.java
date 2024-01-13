@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JsonMapper;
-import net.soundvibe.hasio.danfoss.Bootstrapper;
 import net.soundvibe.hasio.danfoss.protocol.DanfossDiscovery;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import net.soundvibe.hasio.danfoss.protocol.config.DanfossBindingConfig;
@@ -28,7 +27,7 @@ public class Application {
 
     public static final Path CONFIG_FILE = Paths.get("/share/danfoss-icon/danfoss_config.json");
     public static final List<Path> CONFIG_FILES = List.of(CONFIG_FILE, Paths.get("danfoss_config.json"));
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         logger.info("starting danfoss icon addon...");
         var gson = new GsonBuilder().create();
         var gsonMapper = new JsonMapper() {
@@ -44,6 +43,7 @@ public class Application {
         };
 
         var app = Javalin.create(config -> {
+            config.showJavalinBanner = false;
             config.staticFiles.add("/public", Location.CLASSPATH);
             config.jsonMapper(gsonMapper);
         });
@@ -83,9 +83,7 @@ public class Application {
                     var appConfig = gson.fromJson(json, AppConfig.class);
                     var bootstrapper =  new Bootstrapper(appConfig);
                     bootstrapper.bootstrap(app);
-                }, () -> {
-                    logger.info("config file not found, use ip:port/discover endpoint to discover new house");
-                });
+                }, () -> logger.info("config file not found, use ip:port/discover endpoint to discover new house"));
 
 
         app.start(9199);
