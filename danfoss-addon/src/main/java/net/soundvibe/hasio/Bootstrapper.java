@@ -2,10 +2,11 @@ package net.soundvibe.hasio;
 
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
-import net.soundvibe.hasio.ha.HomeAssistantClient;
+import net.openhft.hashing.LongHashFunction;
 import net.soundvibe.hasio.danfoss.data.IconRoom;
 import net.soundvibe.hasio.danfoss.protocol.IconMasterHandler;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
+import net.soundvibe.hasio.ha.HomeAssistantClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +21,10 @@ public class Bootstrapper {
     private static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(16, Thread.ofVirtual().factory());
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final AppConfig appConfig;
+
+    private static final int HASH_SEED = 0xe17a1465;
+
+    public static final LongHashFunction XX_HASH = LongHashFunction.xx(HASH_SEED);
 
     public Bootstrapper(AppConfig appConfig) {
         this.appConfig = appConfig;

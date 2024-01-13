@@ -2,6 +2,8 @@ package net.soundvibe.hasio.danfoss.data;
 
 import java.util.Map;
 
+import static net.soundvibe.hasio.Bootstrapper.XX_HASH;
+
 public record IconRoom(String name, int number, double temperature, double temperatureHome, double temperatureAway, int batteryPercent) {
 
     public State toState() {
@@ -12,8 +14,8 @@ public record IconRoom(String name, int number, double temperature, double tempe
                 "state_class", "measurement",
                 "battery_level", String.valueOf(batteryPercent),
                 "temperature_home", String.valueOf(temperatureHome),
-                "temperature_away", String.valueOf(temperatureAway)
+                "temperature_away", String.valueOf(temperatureAway),
+                "unique_id", String.format("%d%d", XX_HASH.hashChars(name), number)
         ));
     }
-
 }
