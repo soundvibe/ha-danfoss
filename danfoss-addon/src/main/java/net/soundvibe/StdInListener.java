@@ -23,7 +23,7 @@ public class StdInListener {
     public void start() {
         logger.info("starting stdin listener");
         running.set(true);
-        Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().start(() -> {
+        Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().unstarted(() -> {
             running.set(false);
         }));
         Thread.ofVirtual().start(() -> {
