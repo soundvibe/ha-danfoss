@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7]
+
+### Added
+
+- Added commands RESTful endpoint
+- Added documentation how to set temperature from HA
+
 ## [0.1.3]
 
 ### Added
