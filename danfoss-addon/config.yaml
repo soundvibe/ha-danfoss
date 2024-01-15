@@ -1,6 +1,6 @@
-name: "Danfoss Icon Addon"
+name: "Danfoss Icon"
 description: "Danfoss Icon Master Controller Addon"
-version: "0.1.1"
+version: "0.1.2"
 slug: "danfoss"
 init: false
 url: "https://github.com/soundvibe/ha-danfoss"
@@ -12,7 +12,11 @@ map:
 ports:
   9199/tcp: 9199
 options:
-  userName: "home-assistant"
+  haUpdatePeriodInMinutes: 1
+  sensorNameFmt: "sensor.danfoss_%d_temperature"
+schema:
+  haUpdatePeriodInMinutes: "int(1,60)"
+  sensorNameFmt: str
 arch:
   - aarch64
   - amd64

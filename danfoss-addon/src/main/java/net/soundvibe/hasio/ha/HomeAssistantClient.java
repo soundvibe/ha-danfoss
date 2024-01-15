@@ -1,7 +1,8 @@
 package net.soundvibe.hasio.ha;
 
-import com.google.gson.Gson;
+import net.soundvibe.hasio.Json;
 import net.soundvibe.hasio.danfoss.data.IconRoom;
+import net.soundvibe.hasio.model.Options;
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,15 +12,16 @@ public class HomeAssistantClient {
     private static final Logger logger = LoggerFactory.getLogger(HomeAssistantClient.class);
 
     private final String token;
+    private final Options options;
     private final OkHttpClient httpClient;
 
-    private static final Gson GSON = new Gson();
     private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json");
 
     private static final String HA_CORE_API = "http://supervisor/core/api";
 
-    public HomeAssistantClient(String token) {
+    public HomeAssistantClient(String token, Options options) {
         this.token = "Bearer " + token;
+        this.options = options;
         this.httpClient = new OkHttpClient.Builder()
                 .followRedirects(false)
                 .build();
@@ -31,8 +33,8 @@ public class HomeAssistantClient {
             return;
         }
 
-        var sensorName = String.format("sensor.danfoss_%d_temperature", room.number());
-        var jsonString = GSON.toJson(room.toState());
+        var sensorName = String.format(this.options.sensorNameFmt(), room.number());
+        var jsonString = Json.toJsonString(room.toState());
 
         try {
             var body = RequestBody.create(MEDIA_TYPE_JSON, jsonString);
