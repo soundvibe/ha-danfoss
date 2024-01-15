@@ -69,7 +69,7 @@ public class Bootstrapper {
             } catch (Throwable e) {
                 ctx.status(500)
                         .result(String.format("""
-                        "status": "error", "error": "%s""))""", e.getMessage()))
+                        "status": "error", "error": "%s"))""", e.getMessage()))
                         .contentType("application/json");
             }
         });
