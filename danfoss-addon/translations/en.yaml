@@ -1,0 +1,7 @@
+configuration:
+  haUpdatePeriodInMinutes:
+    name: "HA update interval (minutes)"
+    description: "How often Home Assistant will be updated with changes from Danfoss Icon master controller (default: 1 minute)"
+  sensorNameFmt:
+    name: "Sensor name format"
+    description: "Temperature values are exposed as HA states(sensors), here you can choose how they are named (using Java String.Format())"
