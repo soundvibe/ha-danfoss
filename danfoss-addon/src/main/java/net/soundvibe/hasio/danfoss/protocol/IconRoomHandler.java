@@ -24,7 +24,7 @@ public class IconRoomHandler implements PacketHandler {
     private final AtomicReference<String> roomMode = new AtomicReference<>();
     private final AtomicBoolean manualControl = new AtomicBoolean();
     private final SDGPeerConnector connector;
-    private final int roomNumber;
+    public final int roomNumber;
 
     public IconRoomHandler(SDGPeerConnector connector, int roomNumber) {
         this.connector = connector;

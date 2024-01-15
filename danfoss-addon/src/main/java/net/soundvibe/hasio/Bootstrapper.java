@@ -2,6 +2,7 @@ package net.soundvibe.hasio;
 
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
+import net.soundvibe.StdInListener;
 import net.soundvibe.hasio.danfoss.data.IconRoom;
 import net.soundvibe.hasio.danfoss.protocol.IconMasterHandler;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
@@ -57,6 +58,8 @@ public class Bootstrapper {
                     .findAny()
                     .ifPresentOrElse(ctx::json, () -> ctx.status(HttpStatus.NOT_FOUND));
         });
+
+        new StdInListener(masterHandler).start();
     }
 
     private static void updateHA(IconMasterHandler masterHandler, String token, Options options) {

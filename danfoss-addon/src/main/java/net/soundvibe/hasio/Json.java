@@ -20,6 +20,10 @@ public final class Json {
         }
     }
 
+    public static <T> T fromString(String jsonString, Class<T> classz) {
+        return GSON.fromJson(jsonString, classz);
+    }
+
     public static String toJsonString(Object o) {
         return GSON.toJson(o);
     }

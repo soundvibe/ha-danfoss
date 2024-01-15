@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,6 +59,12 @@ public class IconMasterHandler implements PacketHandler {
         return this.roomsByName.values().stream()
                 .map(IconRoomHandler::toIconRoom)
                 .toList();
+    }
+
+    public Optional<IconRoomHandler> roomHandlerByNumber(int number) {
+        return this.roomsByName.values().stream()
+                .filter(room -> room.roomNumber == number)
+                .findAny();
     }
 
     @Override

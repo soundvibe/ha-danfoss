@@ -12,7 +12,8 @@ public record IconRoom(String name, int number, double temperature, double tempe
                 "state_class", "measurement",
                 "battery_level", String.valueOf(batteryPercent),
                 "temperature_home", String.valueOf(temperatureHome),
-                "temperature_away", String.valueOf(temperatureAway)
+                "temperature_away", String.valueOf(temperatureAway),
+                "room_number", String.valueOf(number)
         ));
     }
 }
