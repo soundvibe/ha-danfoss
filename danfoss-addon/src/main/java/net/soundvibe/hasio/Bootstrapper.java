@@ -2,11 +2,11 @@ package net.soundvibe.hasio;
 
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
-import net.soundvibe.StdInListener;
 import net.soundvibe.hasio.danfoss.data.IconRoom;
 import net.soundvibe.hasio.danfoss.protocol.IconMasterHandler;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import net.soundvibe.hasio.ha.HomeAssistantClient;
+import net.soundvibe.hasio.model.Command;
 import net.soundvibe.hasio.model.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,8 +58,49 @@ public class Bootstrapper {
                     .findAny()
                     .ifPresentOrElse(ctx::json, () -> ctx.status(HttpStatus.NOT_FOUND));
         });
+        app.post("/command", ctx -> {
+            try {
+                var command = Json.fromString(ctx.body(), Command.class);
+                executeCommand(masterHandler, command);
+                ctx.status(200)
+                        .result("""
+            { "status": "OK" }""")
+                        .contentType("application/json");
+            } catch (Throwable e) {
+                ctx.status(500)
+                        .result(String.format("""
+                        "status": "error", "error": "%s""))""", e.getMessage()))
+                        .contentType("application/json");
+            }
+        });
+    }
 
-        new StdInListener(masterHandler).start();
+    private void executeCommand(IconMasterHandler masterHandler, Command cmd) {
+        logger.info("executing cmd: {}", cmd.command());
+
+        var maybeRoom = masterHandler.roomHandlerByNumber(cmd.roomNumber());
+        if (maybeRoom.isEmpty()) {
+            logger.info("room not found: {}", cmd.roomNumber());
+            return;
+        }
+        var roomHandler =  maybeRoom.get();
+
+        switch (cmd.command()) {
+            case "setHomeTemperature": {
+                roomHandler.setHomeTemperature(cmd.value());
+                break;
+            }
+            case "setAwayTemperature": {
+                roomHandler.setAwayTemperature(cmd.value());
+                break;
+            }
+            case "setSleepTemperature": {
+                roomHandler.setSleepTemperature(cmd.value());
+                break;
+            }
+            default:
+                logger.warn("unknown command: {}", cmd.command());
+        }
     }
 
     private static void updateHA(IconMasterHandler masterHandler, String token, Options options) {
