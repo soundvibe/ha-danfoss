@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.3]
+
+- Updated master controller state (`sensor.danfoss_master_controller_last_updated`)
+
 ## [0.2.2]
 
 - Exposed master controller state (`sensor.danfoss_master_controller`)

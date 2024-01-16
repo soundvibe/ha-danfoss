@@ -17,12 +17,12 @@ public record IconMaster(
         Instant productionDate) {
 
     public State toState() {
-        return new State(String.valueOf(vacationSetPoint), Map.ofEntries(
-                entry("unit_of_measurement", "°C"),
-                entry("device_class", "temperature"),
+        return new State(Instant.now().toString(), Map.ofEntries(
+                entry("device_class", "timestamp"),
                 entry("state_class", "measurement"),
                 entry("house_name", houseName),
                 entry("pause_set_point", String.valueOf(pauseSetPoint)),
+                entry("vacation_set_point", String.valueOf(vacationSetPoint)),
                 entry( "hardware_revision", hardwareRevision),
                 entry( "software_revision", softwareRevision),
                 entry( "serial_number", serialNumber),

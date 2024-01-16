@@ -113,7 +113,7 @@ public class Bootstrapper {
                 }
 
                 var iconMaster = masterHandler.iconMaster();
-                homeAssistantClient.upsertState(iconMaster.toState(), "sensor.danfoss_master_controller");
+                homeAssistantClient.upsertState(iconMaster.toState(), "sensor.danfoss_master_controller_last_updated");
                 logger.info("sensors updated successfully");
             } catch (Exception e) {
                 logger.error("sensor update error", e);
