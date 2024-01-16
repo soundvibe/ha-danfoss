@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.1]
+
+- Improved logging
+
 ## [0.2.0]
 
 - Exposed more sensor data
