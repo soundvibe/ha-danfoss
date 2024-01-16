@@ -2,6 +2,7 @@ package net.soundvibe.hasio.danfoss.protocol;
 
 import io.github.sonic_amiga.opensdg.java.PeerConnection;
 import net.soundvibe.hasio.danfoss.protocol.config.Dominion;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,7 @@ public class DeviSmartConnection extends PeerConnection {
     }
 
     @Override
-    protected void onError(Throwable t) {
+    protected void onError(@NotNull Throwable t) {
         m_Handler.setOfflineStatus(t);
     }
 

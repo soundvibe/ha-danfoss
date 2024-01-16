@@ -1,9 +1,8 @@
 package net.soundvibe.hasio.danfoss.protocol;
 
+import net.soundvibe.hasio.danfoss.data.IconMaster;
 import net.soundvibe.hasio.danfoss.data.IconRoom;
 import net.soundvibe.hasio.danfoss.protocol.config.Dominion;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
@@ -11,8 +10,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static net.soundvibe.hasio.danfoss.protocol.config.DanfossBindingConstants.ICON_MAX_ROOMS;
 import static net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgClass.*;
@@ -20,28 +19,34 @@ import static net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgCode.*;
 
 
 public class IconMasterHandler implements PacketHandler {
-
-    private static final Logger logger = LoggerFactory.getLogger(IconMasterHandler.class);
-
     private final IconRoomHandler[] rooms = new IconRoomHandler[ICON_MAX_ROOMS];
-    private final Map<String, IconRoomHandler> roomsByName = new ConcurrentHashMap<>(128);
+    private final Map<String, IconRoomHandler> roomsByName = new ConcurrentHashMap<>(ICON_MAX_ROOMS * 2);
 
-    private final AtomicReference<Double> vacationSetPoint = new AtomicReference<>();
-    private final AtomicReference<Double> pauseSetPoint = new AtomicReference<>();
-    private final AtomicReference<String> hardwareRevision = new AtomicReference<>();
-    private final AtomicReference<String> softwareRevision = new AtomicReference<>();
-    private final AtomicReference<String> serialNumber = new AtomicReference<>();
-    private final AtomicInteger softwareBuildRevision = new AtomicInteger();
-    private final AtomicInteger connectionCount = new AtomicInteger();
-    private final AtomicReference<Instant> productionDate = new AtomicReference<>();
-    private final byte[] privateKey;
-    private final ScheduledExecutorService executorService;
+    private static class IconMasterControllerState {
+        private String houseName;
+        private double vacationSetPoint;
+        private double pauseSetPoint;
+
+        private String hardwareRevision;
+        private String softwareRevision;
+        private String serialNumber;
+        private int softwareBuildRevision;
+        private int connectionCount;
+        private Instant productionDate;
+
+        public IconMaster toIconMaster() {
+            return new IconMaster(houseName, vacationSetPoint, pauseSetPoint, hardwareRevision, softwareRevision, serialNumber,
+                    softwareBuildRevision, connectionCount, productionDate);
+        }
+    }
+
+    private final IconMasterControllerState state = new IconMasterControllerState();
+
+    private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
     private final SDGPeerConnector connector;
 
     public IconMasterHandler(byte[] privateKey, ScheduledExecutorService executorService) {
-        this.privateKey = privateKey;
-        this.executorService = executorService;
-        this.connector = new SDGPeerConnector(this, this.privateKey, this.executorService);
+        this.connector = new SDGPeerConnector(this, privateKey, executorService);
         for (int i = 0; i < ICON_MAX_ROOMS; i++) {
             this.rooms[i] = new IconRoomHandler(this.connector, i);
         }
@@ -67,6 +72,15 @@ public class IconMasterHandler implements PacketHandler {
                 .findAny();
     }
 
+    public IconMaster iconMaster() {
+        lock.readLock().lock();
+        try {
+            return state.toIconMaster();
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
     @Override
     public void handlePacket(Dominion.Packet pkt) {
         int msgClass = pkt.getMsgClass();
@@ -80,29 +94,51 @@ public class IconMasterHandler implements PacketHandler {
             }
         } else {
             switch (pkt.getMsgCode()) {
+                case HOUSE_NAME: {
+                    lock.writeLock().lock();
+                    state.houseName = pkt.getString();
+                    lock.writeLock().unlock();
+                    break;
+                }
                 case VACATION_SETPOINT:
-                    this.vacationSetPoint.set(pkt.getDecimal());
+                    lock.writeLock().lock();
+                    state.vacationSetPoint = pkt.getDecimal();
+                    lock.writeLock().unlock();
                     break;
                 case PAUSE_SETPOINT:
-                    this.pauseSetPoint.set(pkt.getDecimal());
+                    lock.writeLock().lock();
+                    state.pauseSetPoint = pkt.getDecimal();
+                    lock.writeLock().unlock();
                     break;
                 case GLOBAL_HARDWAREREVISION:
-                    this.hardwareRevision.set(pkt.getVersion().toString());
+                    lock.writeLock().lock();
+                    state.hardwareRevision = pkt.getVersion().toString();
+                    lock.writeLock().unlock();
                     break;
                 case GLOBAL_SOFTWAREREVISION:
-                    this.softwareRevision.set(pkt.getVersion().toString());
+                    lock.writeLock().lock();
+                    state.softwareRevision = pkt.getVersion().toString();
+                    lock.writeLock().unlock();
                     break;
                 case GLOBAL_SOFTWAREBUILDREVISION:
-                    this.softwareBuildRevision.set(Short.toUnsignedInt(pkt.getShort()));
+                    lock.writeLock().lock();
+                    state.softwareBuildRevision = Short.toUnsignedInt(pkt.getShort());
+                    lock.writeLock().unlock();
                     break;
                 case GLOBAL_SERIALNUMBER:
-                    this.serialNumber.set(String.valueOf(pkt.getInt()));
+                    lock.writeLock().lock();
+                    state.serialNumber = String.valueOf(pkt.getInt());
+                    lock.writeLock().unlock();
                     break;
                 case GLOBAL_PRODUCTIONDATE:
-                    this.productionDate.set(pkt.getDate(0).toInstant());
+                    lock.writeLock().lock();
+                    state.productionDate = pkt.getDate(0).toInstant();
+                    lock.writeLock().unlock();
                     break;
                 case MDG_CONNECTION_COUNT:
-                    this.connectionCount.set(pkt.getByte());
+                    lock.writeLock().lock();
+                    state.connectionCount = pkt.getByte();
+                    lock.writeLock().unlock();
                     break;
             }
         }

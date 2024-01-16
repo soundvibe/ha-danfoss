@@ -15,11 +15,12 @@ import java.util.concurrent.*;
 
 public class SDGPeerConnector {
 
+    private static final Logger logger = LoggerFactory.getLogger(SDGPeerConnector.class);
+
     private final ExecutorService singleThread = Executors.newSingleThreadExecutor();
     private final PacketHandler packetHandler;
     private final byte[] privateKey;
     private final ScheduledExecutorService scheduler;
-    private static final Logger logger = LoggerFactory.getLogger(SDGPeerConnector.class);
     private byte[] peerId;
     private DeviSmartConnection connection;
     private @Nullable Future<?> reconnectReq;
@@ -35,20 +36,15 @@ public class SDGPeerConnector {
     public void initialize(String peerIdStr) {
         logger.trace("initialize()");
 
-        //GridConnectionKeeper.AddUser();
-
         peerId = SDGUtils.ParseKey(peerIdStr);
         if (peerId == null) {
-           // thingHandler.reportStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
-           //         "Peer ID is not set");
+            logger.warn("Peer ID is not set");
             return;
         }
 
         // set the thing status to UNKNOWN temporarily and let the background task decide for the real status.
         // the framework is then able to reuse the resources from the thing handler initialization.
         // we set this upfront to reliably check status updates in unit tests.
-       // reportStatus(ThingStatus.UNKNOWN);
-
         connection = new DeviSmartConnection(this);
 
         watchdog = scheduler.scheduleAtFixedRate(() -> {
@@ -57,8 +53,6 @@ public class SDGPeerConnector {
             }
             if (System.currentTimeMillis() - lastPacket > 30000) {
                 logger.warn("Device is inactive during 30 seconds, reconnecting");
-              //  thingHandler.reportStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-              //          "Communication timeout");
                 singleThread.execute(() -> {
                     if (connection == null) {
                         return; // We are being disposed
@@ -98,8 +92,6 @@ public class SDGPeerConnector {
                 conn.close();
             }
         });
-
-        //GridConnectionKeeper.RemoveUser();
     }
 
     private void connect() {
@@ -127,10 +119,8 @@ public class SDGPeerConnector {
     }
 
     public void setOnlineStatus() {
-        logger.info("Connection established");
-
         if (connection != null) {
-           // reportStatus(ThingStatus.ONLINE);
+            logger.info("Connection established");
         }
     }
 
@@ -138,7 +128,7 @@ public class SDGPeerConnector {
         String reason = t.getMessage();
 
         if (reason == null) {
-            // Some Throwables might not have a reason
+            // Some errors might not have a reason
             if (t instanceof ClosedChannelException) {
                 reason = "Peer not connected";
             } else if (t instanceof TimeoutException) {
@@ -157,9 +147,7 @@ public class SDGPeerConnector {
 
     private void scheduleReconnect() {
         logger.info("schedule reconnect");
-        reconnectReq = scheduler.schedule(() -> {
-            connect();
-        }, 10, TimeUnit.SECONDS);
+        reconnectReq = scheduler.schedule(this::connect, 10, TimeUnit.SECONDS);
     }
 
     public void Send(byte[] data) {
@@ -190,34 +178,4 @@ public class SDGPeerConnector {
         lastPacket = System.currentTimeMillis();
         this.packetHandler.handlePacket(pkt);
     }
-
-/*    public void setTemperature(int msgClass, int msgCode, Command command) {
-        double newTemperature;
-
-        if (command instanceof DecimalType) {
-            newTemperature = ((DecimalType) command).doubleValue();
-        } else if (command instanceof QuantityType) {
-            @SuppressWarnings("unchecked")
-            QuantityType<Temperature> celsius = ((QuantityType<Temperature>) command).toUnit(SIUnits.CELSIUS);
-            if (celsius == null) {
-                return;
-            }
-            newTemperature = celsius.doubleValue();
-        } else {
-            sendRefresh(msgClass, msgCode, command);
-            return;
-        }
-
-        SendPacket(new Dominion.Packet(msgClass, msgCode, newTemperature));
-    }*/
-
- /*   public void sendRefresh(int msgClass, int msgCode, Command command) {
-        if (command instanceof RefreshType) {
-            SendPacket(new Dominion.Packet(msgClass, msgCode));
-        }
-    }*/
-
-/*    private void reportStatus(@NonNull ThingStatus status) {
-        thingHandler.reportStatus(status, ThingStatusDetail.NONE, null);
-    }*/
 }

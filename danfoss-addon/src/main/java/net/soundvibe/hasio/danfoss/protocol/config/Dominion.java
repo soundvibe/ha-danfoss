@@ -18,8 +18,8 @@ public class Dominion {
          */
         public static final int HeaderSize = 4;
 
-        private ByteBuffer m_Buffer;
-        private int m_Start;
+        private final ByteBuffer m_Buffer;
+        private final int m_Start;
 
         // This constructor is used in order to parse incoming packets
         public Packet(byte[] data, int startOffset) {
@@ -194,23 +194,6 @@ public class Dominion {
             return new Version(getShort());
         }
 
-/*        public DeviSmart.WizardInfo getWizardInfo() {
-            DeviSmart.WizardInfo ret = new DeviSmart.WizardInfo();
-
-            // WizardInfo is written as an array, so its first byte is array length
-            // and always equals to 6. Skip it.
-            position(1);
-            // Then go values.
-            ret.sensorType = m_Buffer.get();
-            ret.regulationType = m_Buffer.get();
-            ret.flooringType = m_Buffer.get();
-            ret.roomType = m_Buffer.get();
-            ret.outputPower = m_Buffer.get() * DeviSmart.WizardInfo.POWER_SCALE;
-            // 6'th value is always set to 1, we don't know what it is.
-
-            return ret;
-        }*/
-
         @Override
         public String toString() {
             int length = getPayloadLength();
@@ -224,8 +207,8 @@ public class Dominion {
     }
 
     public static class Version {
-        public int Major;
-        public int Minor;
+        public final int Major;
+        public final int Minor;
 
         // Version number is short, composed of (Major, Minor)
         Version(short num) {

@@ -2,7 +2,6 @@ package net.soundvibe.hasio;
 
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
-import net.soundvibe.hasio.danfoss.data.IconRoom;
 import net.soundvibe.hasio.danfoss.protocol.IconMasterHandler;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import net.soundvibe.hasio.ha.HomeAssistantClient;
@@ -104,12 +103,17 @@ public class Bootstrapper {
     }
 
     private static void updateHA(IconMasterHandler masterHandler, String token, Options options) {
-        var homeAssistantClient = new HomeAssistantClient(token, options);
+        var homeAssistantClient = new HomeAssistantClient(token);
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                for (IconRoom room : masterHandler.listRooms()) {
-                    homeAssistantClient.upsertRoomThermostat(room);
+                for (var room : masterHandler.listRooms()) {
+                    var sensorName = String.format(options.sensorNameFmt(), room.number());
+                    var state = room.toState();
+                    homeAssistantClient.upsertState(state, sensorName);
                 }
+
+                var iconMaster = masterHandler.iconMaster();
+                homeAssistantClient.upsertState(iconMaster.toState(), "sensor.danfoss_master_controller");
                 logger.info("sensors updated successfully");
             } catch (Exception e) {
                 logger.error("sensor update error", e);

@@ -53,7 +53,7 @@ public class Application {
                 if (response.housePeerId != null) {
                     // persist
                     var appConfig = new AppConfig(bindingConfig.privateKey(), bindingConfig.userName(), response.housePeerId);
-                    var appConfigJson = GSON.toJson(appConfig);
+                    var appConfigJson = Json.toJsonString(appConfig);
                     Files.writeString(DANFOSS_CONFIG_FILE, appConfigJson);
                     ctx.html(String.format("Discovered Icon house %s with %s peerId (privateKey: %s) successfully",
                             response.houseName, response.housePeerId, Arrays.toString(bindingConfig.privateKey())));

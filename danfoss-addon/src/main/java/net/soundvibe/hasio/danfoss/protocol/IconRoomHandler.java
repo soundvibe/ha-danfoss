@@ -54,7 +54,7 @@ public class IconRoomHandler implements PacketHandler {
 
     public IconRoomHandler(SDGPeerConnector connector, int roomNumber) {
         this.room = new Room(roomNumber);
-        this.lock = new ReentrantReadWriteLock();
+        this.lock = new ReentrantReadWriteLock(true);
         this.connector = connector;
         this.roomNumber = roomNumber;
     }

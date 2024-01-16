@@ -1,13 +1,13 @@
 /**
  * Copyright (c) 2010-2019 Contributors to the openHAB project
- *
+ * <p>
  * See the NOTICE file(s) distributed with this work for additional
  * information.
- *
+ * <p>
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
  * http://www.eclipse.org/legal/epl-2.0
- *
+ * <p>
  * SPDX-License-Identifier: EPL-2.0
  */
 package net.soundvibe.hasio.danfoss.protocol.config;
@@ -24,10 +24,6 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 public class DanfossBindingConstants {
 
     public static final String BINDING_ID = "danfoss";
-
-    // List of all Thing Type UIDs
-   // public static final ThingTypeUID THING_TYPE_ICON_WIFI = new ThingTypeUID(BINDING_ID, "icon_wifi");
-    //public static final ThingTypeUID THING_TYPE_ICON_ROOM = new ThingTypeUID(BINDING_ID, "icon_room");
 
     public static final int ICON_MAX_ROOMS = 45;
 
