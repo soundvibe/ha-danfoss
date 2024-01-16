@@ -2,4 +2,4 @@
 
 echo "Starting app..."
 
-java -jar app.jar
+java --enable-preview -jar app.jar
