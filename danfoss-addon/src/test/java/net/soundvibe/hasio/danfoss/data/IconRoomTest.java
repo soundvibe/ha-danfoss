@@ -10,7 +10,8 @@ class IconRoomTest {
 
     @Test
     void testStateJson() {
-        var sut = new IconRoom("Living Room", 1, 22.3, 23.0, 21.0, 99);
+        var sut = new IconRoom("Living Room", 1, 22.3, 23.0, 21.0, 19.0,
+                 30.0, 15.0, (short) 99, HeatingState.OFF, RoomMode.HOME);
         var state = sut.toState();
 
         System.out.println(Json.toJsonString(state));

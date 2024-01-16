@@ -1,84 +1,155 @@
 package net.soundvibe.hasio.danfoss.protocol;
 
+import net.soundvibe.hasio.danfoss.data.HeatingState;
 import net.soundvibe.hasio.danfoss.data.IconRoom;
+import net.soundvibe.hasio.danfoss.data.RoomMode;
 import net.soundvibe.hasio.danfoss.protocol.config.Dominion;
 import net.soundvibe.hasio.danfoss.protocol.config.Icon;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgClass.ROOM_FIRST;
 import static net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgCode.*;
 
 public class IconRoomHandler implements PacketHandler {
-    private final AtomicReference<String> roomName = new AtomicReference<>();
-    private final AtomicReference<Double> temperature = new AtomicReference<>();
-    private final AtomicReference<Double> temperatureFloor = new AtomicReference<>();
-    private final AtomicReference<Double> temperatureFloorMin = new AtomicReference<>();
-    private final AtomicReference<Double> temperatureFloorMax = new AtomicReference<>();
-    private final AtomicReference<Double> setPointHome = new AtomicReference<>();
-    private final AtomicReference<Double> setPointAway = new AtomicReference<>();
-    private final AtomicReference<Double> setPointSleep = new AtomicReference<>();
-    private final AtomicInteger batteryPercent = new AtomicInteger();
-    private final AtomicReference<String> roomMode = new AtomicReference<>();
-    private final AtomicBoolean manualControl = new AtomicBoolean();
+
+    private static final Logger logger = LoggerFactory.getLogger(IconRoomHandler.class);
+
+    private static class Room {
+        private String roomName;
+        private double temperature;
+        private double temperatureFloor;
+        private double temperatureFloorMin;
+        private double temperatureFloorMax;
+        private double setPointHigh;
+        private double setPointLow;
+        private double setPointHome;
+        private double setPointAway;
+        private double setPointSleep;
+        private short batteryPercent;
+        private RoomMode roomMode;
+        private boolean manualControl;
+        private HeatingState heatingState;
+
+        public final int roomNumber;
+
+        private Room(int roomNumber) {
+            this.roomNumber = roomNumber;
+            this.roomName = "";
+        }
+
+        @Override
+        public String toString() {
+            return STR."Room{roomName='\{roomName}\{'\''}, temperature=\{temperature}, temperatureFloor=\{temperatureFloor}, temperatureFloorMin=\{temperatureFloorMin}, temperatureFloorMax=\{temperatureFloorMax}, setPointHigh=\{setPointHigh}, setPointLow=\{setPointLow}, setPointHome=\{setPointHome}, setPointAway=\{setPointAway}, setPointSleep=\{setPointSleep}, batteryPercent=\{batteryPercent}, roomMode=\{roomMode}, manualControl=\{manualControl}, heatingState=\{heatingState}, roomNumber=\{roomNumber}\{'}'}";
+        }
+    }
+
+    private final Room room;
     private final SDGPeerConnector connector;
     public final int roomNumber;
+    private final ReadWriteLock lock;
 
     public IconRoomHandler(SDGPeerConnector connector, int roomNumber) {
+        this.room = new Room(roomNumber);
+        this.lock = new ReentrantReadWriteLock();
         this.connector = connector;
         this.roomNumber = roomNumber;
     }
 
     public String nameOrEmpty() {
-        var name = this.roomName.get();
-        return name == null ? "" : name;
+        lock.readLock().lock();
+        try {
+            return room.roomName;
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     @Override
     public void handlePacket(Dominion.Packet pkt) {
-
         switch (pkt.getMsgCode()) {
             case ROOM_FLOORTEMPERATURE:
-                this.temperatureFloor.set(pkt.getDecimal());
+                lock.writeLock().lock();
+                room.temperatureFloor = pkt.getDecimal();
+                lock.writeLock().unlock();
                 break;
             case ROOM_ROOMTEMPERATURE:
-                this.temperature.set(pkt.getDecimal());
+                lock.writeLock().lock();
+                room.temperature = pkt.getDecimal();
+                lock.writeLock().unlock();
+                break;
+            case ROOM_SETPOINTMAXIMUM:
+                lock.writeLock().lock();
+                room.setPointHigh = pkt.getDecimal();
+                lock.writeLock().unlock();
+                break;
+            case ROOM_SETPOINTMINIMUM:
+                lock.writeLock().lock();
+                room.setPointLow = pkt.getDecimal();
+                lock.writeLock().unlock();
                 break;
             case ROOM_SETPOINTATHOME:
-                this.setPointHome.set(pkt.getDecimal());
+                lock.writeLock().lock();
+                room.setPointHome = pkt.getDecimal();
+                lock.writeLock().unlock();
                 break;
             case ROOM_SETPOINTASLEEP:
-                this.setPointSleep.set(pkt.getDecimal());
+                lock.writeLock().lock();
+                room.setPointSleep = pkt.getDecimal();
+                lock.writeLock().unlock();
                 break;
             case ROOM_SETPOINTAWAY:
-                this.setPointAway.set(pkt.getDecimal());
+                lock.writeLock().lock();
+                room.setPointAway = pkt.getDecimal();
+                lock.writeLock().unlock();
                 break;
             case ROOM_FLOORTEMPERATUREMINIMUM:
-                this.temperatureFloorMin.set(pkt.getDecimal());
+                lock.writeLock().lock();
+                room.temperatureFloorMin = pkt.getDecimal();
+                lock.writeLock().unlock();
                 break;
             case ROOM_FLOORTEMPERATUREMAXIMUM:
-                this.temperatureFloorMax.set(pkt.getDecimal());
+                lock.writeLock().lock();
+                room.temperatureFloorMax = pkt.getDecimal();
+                lock.writeLock().unlock();
                 break;
             case ROOM_BATTERYINDICATIONPERCENT:
-                this.batteryPercent.set(pkt.getByte());
+                lock.writeLock().lock();
+                room.batteryPercent = pkt.getByte();
+                lock.writeLock().unlock();
                 break;
             case ROOM_ROOMMODE:
                 setRoomMode(pkt.getByte());
                 break;
             case ROOM_ROOMCONTROL:
-                this.manualControl.set(pkt.getByte() == Icon.RoomControl.Manual);
+                lock.writeLock().lock();
+                room.manualControl = pkt.getByte() == Icon.RoomControl.Manual;
+                lock.writeLock().unlock();
                 break;
             case ROOMNAME:
-                this.roomName.set(pkt.getString());
+                var roomName = pkt.getString();
+                if (roomName != null && !roomName.isEmpty()) {
+                    lock.writeLock().lock();
+                    room.roomName = roomName;
+                    logger.debug("room={}", room);
+                    lock.writeLock().unlock();
+                }
+                break;
+            case ROOM_HEATINGCOOLINGSTATE:
+                var state = pkt.getBoolean();
+                lock.writeLock().lock();
+                room.heatingState = HeatingState.from(state);
+                lock.writeLock().unlock();
                 break;
         }
     }
 
     @Override
     public void ping() {
-        //nop
+        logger.debug("room {} ping", roomNumber);
     }
 
     public void refresh() {
@@ -87,38 +158,55 @@ public class IconRoomHandler implements PacketHandler {
 
     public void setHomeTemperature(double newTemperature) {
         this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_SETPOINTATHOME, newTemperature));
-        this.setPointHome.set(newTemperature);
+        lock.writeLock().lock();
+        room.setPointHome = newTemperature;
+        lock.writeLock().unlock();
     }
 
     public void setAwayTemperature(double newTemperature) {
         this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_SETPOINTAWAY, newTemperature));
-        this.setPointAway.set(newTemperature);
+        lock.writeLock().lock();
+        room.setPointAway = newTemperature;
+        lock.writeLock().unlock();
     }
 
     public void setSleepTemperature(double newTemperature) {
         this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_SETPOINTASLEEP, newTemperature));
-        this.setPointSleep.set(newTemperature);
+        lock.writeLock().lock();
+        room.setPointSleep = newTemperature;
+        lock.writeLock().unlock();
     }
 
     private void setRoomMode(byte mode) {
-        switch (mode) {
-            case Icon.RoomMode.AtHome:
-                this.roomMode.set("Home");
-                break;
-            case Icon.RoomMode.Away:
-                this.roomMode.set("Away");
-                break;
-            case Icon.RoomMode.Asleep:
-                this.roomMode.set("Sleep");
-                break;
-            case Icon.RoomMode.Fatal:
-                this.roomMode.set("Fatal");
-                break;
+        lock.writeLock().lock();
+        try {
+            switch (mode) {
+                case Icon.RoomMode.AtHome:
+                    room.roomMode = RoomMode.HOME;
+                    break;
+                case Icon.RoomMode.Away:
+                    room.roomMode = RoomMode.AWAY;
+                    break;
+                case Icon.RoomMode.Asleep:
+                    room.roomMode = RoomMode.SLEEP;
+                    break;
+                case Icon.RoomMode.Fatal:
+                    room.roomMode = RoomMode.FATAL;
+                    break;
+            }
+        } finally {
+            lock.writeLock().unlock();
         }
     }
 
     public IconRoom toIconRoom() {
-        return new IconRoom(this.roomName.get(), this.roomNumber, this.temperature.get(), this.setPointHome.get(),
-                this.setPointAway.get(), this.batteryPercent.get());
+        lock.readLock().lock();
+        try {
+            return new IconRoom(room.roomName, room.roomNumber, room.temperature,
+                    room.setPointHome, room.setPointAway, room.setPointSleep, room.setPointHigh, room.setPointLow,
+                    room.batteryPercent, room.heatingState, room.roomMode);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 }

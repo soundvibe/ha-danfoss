@@ -235,7 +235,7 @@ public class Dominion {
 
         @Override
         public String toString() {
-            return String.valueOf(Major) + "." + String.valueOf(Minor);
+            return STR."\{Major}.\{Minor}";
         }
     }
 

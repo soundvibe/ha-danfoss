@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.9]
+
+- Exposed more sensor data
+
 ## [0.1.8]
 
 - Updated documentation
