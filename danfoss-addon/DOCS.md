@@ -47,8 +47,8 @@ climate:
   - platform: climate_template
     name: Master Bedroom Thermostat
     unique_id: danfoss_0_thermostat
-    min_temp: "{{ state_attr('sensor.danfoss_0_temperature', 'temperature_low') }}"
-    max_temp: "{{ state_attr('sensor.danfoss_0_temperature', 'temperature_high') }}"
+    min_temp: 5
+    max_temp: 35
     temp_step: 0.5
     modes:
       - "off"
