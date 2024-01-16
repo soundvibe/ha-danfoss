@@ -3,10 +3,14 @@ package net.soundvibe.hasio.danfoss.data;
 import net.soundvibe.hasio.Json;
 import net.soundvibe.hasio.model.Command;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class IconRoomTest {
+
+    private static final Logger logger = LoggerFactory.getLogger(IconRoomTest.class);
 
     @Test
     void testStateJson() {
@@ -14,7 +18,7 @@ class IconRoomTest {
                  30.0, 15.0, (short) 99, HeatingState.OFF, RoomMode.HOME);
         var state = sut.toState();
 
-        System.out.println(Json.toJsonString(state));
+        logger.info(Json.toJsonString(state));
     }
 
     @Test

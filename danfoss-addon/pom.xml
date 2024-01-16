@@ -52,6 +52,12 @@
   <dependencies>
 
     <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.4.14</version>
+    </dependency>
+
+    <dependency>
       <groupId>io.github.sonic-amiga</groupId>
       <artifactId>opensdg_java</artifactId>
       <version>1.0.0</version>
