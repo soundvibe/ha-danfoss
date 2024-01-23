@@ -24,6 +24,7 @@ public class Application {
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
     public static final Path DANFOSS_CONFIG_FILE = Paths.get("/share/danfoss-icon/danfoss_config.json");
+    public static final Path DANFOSS_CONFIG_DIR = Paths.get("/share/danfoss-icon");
     public static final Path ADDON_CONFIG_FILE = Paths.get("/data/options.json");
     public static final List<Path> CONFIG_FILES = List.of(DANFOSS_CONFIG_FILE, Paths.get("danfoss_config.json"));
     public static void main(String[] args) {
@@ -54,6 +55,7 @@ public class Application {
                     // persist
                     var appConfig = new AppConfig(bindingConfig.privateKey(), bindingConfig.userName(), response.housePeerId);
                     var appConfigJson = Json.toJsonString(appConfig);
+                    Files.createDirectories(DANFOSS_CONFIG_DIR);
                     Files.writeString(DANFOSS_CONFIG_FILE, appConfigJson);
                     ctx.html(String.format("Discovered Icon house %s with %s peerId (privateKey: %s) successfully",
                             response.houseName, response.housePeerId, Arrays.toString(bindingConfig.privateKey())));
@@ -62,6 +64,8 @@ public class Application {
                 } else {
                     ctx.html("House was not discovered");
                 }
+            } catch (Throwable e) {
+                ctx.html(String.format("House was not discovered because of an error: %s", e.getMessage())).status(500);
             }
         });
 
