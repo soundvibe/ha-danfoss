@@ -24,9 +24,10 @@ public class Application {
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
     public static final Path DANFOSS_CONFIG_FILE = Paths.get("/share/danfoss-icon/danfoss_config.json");
+    public static final Path DANFOSS_CONFIG_FILE_LOCAL = Paths.get("danfoss_config.json");
     public static final Path DANFOSS_CONFIG_DIR = Paths.get("/share/danfoss-icon");
     public static final Path ADDON_CONFIG_FILE = Paths.get("/data/options.json");
-    public static final List<Path> CONFIG_FILES = List.of(DANFOSS_CONFIG_FILE, Paths.get("danfoss_config.json"));
+    public static final List<Path> CONFIG_FILES = List.of(DANFOSS_CONFIG_FILE, DANFOSS_CONFIG_FILE_LOCAL);
     public static void main(String[] args) {
         logger.info("starting danfoss icon addon...");
 
@@ -59,6 +60,7 @@ public class Application {
                     Files.writeString(DANFOSS_CONFIG_FILE, appConfigJson);
                     ctx.html(String.format("Discovered Icon house %s with %s peerId (privateKey: %s) successfully",
                             response.houseName, response.housePeerId, Arrays.toString(bindingConfig.privateKey())));
+                    discovery.close();
                     var bootstrapper =  new Bootstrapper(appConfig);
                     bootstrapper.bootstrap(app);
                 } else {

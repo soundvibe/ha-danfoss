@@ -31,6 +31,7 @@ public class DanfossDiscovery implements AutoCloseable {
 
     private final GridConnection conn;
     private final ScheduledExecutorService executorService;
+    private boolean closed;
 
     public DanfossDiscovery(String oneTimeCode, DanfossBindingConfig bindingConfig) {
         this.oneTimeCode = sanitizeOneTimeCode(Objects.requireNonNull(oneTimeCode));
@@ -131,6 +132,10 @@ public class DanfossDiscovery implements AutoCloseable {
 
     @Override
     public void close() {
+        if (this.closed) {
+            return;
+        }
+        this.closed = true;
         this.executorService.close();
         this.conn.close();
     }
