@@ -66,3 +66,9 @@ climate:
 The result:
 
 ![img.png](img.png)
+
+## Donations
+
+If this repository was useful to you and if you are willing to pay for it, feel free to send any amount through paypal:
+
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://paypal.me/soundvibe)
