@@ -6,6 +6,7 @@ import io.javalin.json.JsonMapper;
 import net.soundvibe.hasio.danfoss.protocol.DanfossDiscovery;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import net.soundvibe.hasio.danfoss.protocol.config.DanfossBindingConfig;
+import net.soundvibe.hasio.model.Options;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,9 @@ public class Application {
     public static final List<Path> CONFIG_FILES = List.of(DANFOSS_CONFIG_FILE, DANFOSS_CONFIG_FILE_LOCAL);
     public static void main(String[] args) {
         logger.info("starting danfoss icon addon...");
+        var options = Options.fromPath(ADDON_CONFIG_FILE);
+        logger.info("parsed options: haUpdatePeriodInMinutes={}, sensorNameFmt={}, port={}",
+                options.haUpdatePeriodInMinutes(), options.sensorNameFmt(), options.port());
 
         var app = Javalin.create(config -> {
             config.showJavalinBanner = false;
@@ -73,14 +77,14 @@ public class Application {
                     Files.createDirectories(DANFOSS_CONFIG_DIR);
                     Files.writeString(DANFOSS_CONFIG_FILE, appConfigJson);
                     discovery.close();
-                    var bootstrapper =  new Bootstrapper(appConfig);
+                    var bootstrapper =  new Bootstrapper(appConfig, options);
                     bootstrapper.bootstrap(app);
                 } else {
                     ctx.html("House was not discovered");
                 }
             } catch (Throwable e) {
                 logger.error("Failed to discover a new house", e);
-                ctx.html(String.format("House was not discovered because of an error: %s", e.getMessage())).status(500);
+                ctx.html(STR."House was not discovered because of an error: \{e.getMessage()}").status(500);
             }
         });
 
@@ -91,12 +95,12 @@ public class Application {
                 .findAny()
                 .ifPresentOrElse(appConfig -> {
                     logger.info("config file found, bootstrapping...");
-                    var bootstrapper =  new Bootstrapper(appConfig);
+                    var bootstrapper =  new Bootstrapper(appConfig, options);
                     bootstrapper.bootstrap(app);
                 }, () -> logger.info("config file not found, use ip:port/discover endpoint to discover new house"));
 
 
-        app.start(9199);
+        app.start(options.port());
         logger.info("started addon");
     }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.5]
+
+- Made port configurable
+
 ## [0.2.4]
 
 - Try to create config dir before writing to it during pairing process 

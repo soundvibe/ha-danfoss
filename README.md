@@ -14,6 +14,10 @@ Add the repository URL under **Supervisor (Hass.io) → Add-on Store** in your H
 
     https://github.com/soundvibe/ha-danfoss
 
+## Documentation
+
+Addon README could be found [here](danfoss-addon/README.md).
+
 ## Donations
 
 If this repository was useful to you and if you are willing to pay for it, feel free to send any amount through paypal:

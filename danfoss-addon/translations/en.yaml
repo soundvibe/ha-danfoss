@@ -5,3 +5,6 @@ configuration:
   sensorNameFmt:
     name: "Sensor name format"
     description: "Temperature values are exposed as HA states(sensors), here you can choose how they are named (using Java String.Format())"
+  port:
+    name: "Port"
+    description: "Addon web server port (default 9199)"

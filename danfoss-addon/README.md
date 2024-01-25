@@ -25,6 +25,10 @@ If this file is present, the pairing process won't be needed and the addon will 
 All house thermostats will be exposed to Home Assistant as temperature sensors, e.g. `sensor.danfoss_{room_number}_temperature`.
 Remaining battery percentage is written into entity attributes - `battery_level`.
 
+### Documentation
+
+Documentation on how Home Assistant [climate](https://developers.home-assistant.io/docs/core/entity/climate/) entities (thermostats) might be created can be found [here](DOCS.md).
+
 ## Donations
 
 If this repository was useful to you and if you are willing to pay for it, feel free to send any amount through paypal:

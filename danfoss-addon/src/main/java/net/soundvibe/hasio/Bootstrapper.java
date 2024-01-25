@@ -14,8 +14,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static net.soundvibe.hasio.Application.ADDON_CONFIG_FILE;
-
 public class Bootstrapper {
 
     private static final Logger logger = LoggerFactory.getLogger(Bootstrapper.class);
@@ -23,16 +21,14 @@ public class Bootstrapper {
     private static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(16, Thread.ofVirtual().factory());
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final AppConfig appConfig;
+    private final Options options;
 
-    public Bootstrapper(AppConfig appConfig) {
+    public Bootstrapper(AppConfig appConfig, Options options) {
         this.appConfig = appConfig;
+        this.options = options;
     }
 
     public void bootstrap(Javalin app) {
-        var options = Options.fromPath(ADDON_CONFIG_FILE);
-        logger.info("parsed options: haUpdatePeriodInMinutes={}, sensorNameFmt={}",
-                options.haUpdatePeriodInMinutes(), options.sensorNameFmt());
-
         var masterHandler = new IconMasterHandler(appConfig.privateKey(), executorService);
         masterHandler.scanRooms(appConfig.peerId());
         logger.info("rooms scanned: {}", appConfig.peerId());
@@ -67,8 +63,9 @@ public class Bootstrapper {
                         .contentType("application/json");
             } catch (Throwable e) {
                 ctx.status(500)
-                        .result(String.format("""
-                        "status": "error", "error": "%s"))""", e.getMessage()))
+                        .result(STR."""
+                        "status": "error", "error": "\{ e.getMessage() }"
+                        """)
                         .contentType("application/json");
             }
         });
