@@ -5,23 +5,35 @@ import io.javalin.http.HttpStatus;
 import net.soundvibe.hasio.danfoss.protocol.IconMasterHandler;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import net.soundvibe.hasio.ha.HomeAssistantClient;
+import net.soundvibe.hasio.ha.model.MQTTSetState;
 import net.soundvibe.hasio.model.Command;
 import net.soundvibe.hasio.model.Options;
+import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import static net.soundvibe.hasio.danfoss.protocol.config.DanfossBindingConstants.ICON_MAX_ROOMS;
 
 public class Bootstrapper {
 
     private static final Logger logger = LoggerFactory.getLogger(Bootstrapper.class);
 
     private static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(16, Thread.ofVirtual().factory());
-    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(8, Thread.ofVirtual().factory());
     private final AppConfig appConfig;
     private final Options options;
+
+    private final Map<String, IMqttMessageListener> subscribers = new ConcurrentHashMap<>(ICON_MAX_ROOMS * 2);
 
     public Bootstrapper(AppConfig appConfig, Options options) {
         this.appConfig = appConfig;
@@ -39,7 +51,11 @@ public class Bootstrapper {
             logger.warn("authorization token not found");
         } else {
             logger.info("scheduling HA state updater");
-            updateHA(masterHandler, token, options);
+            scheduleHomeAssistantUpdates(masterHandler, token, options);
+        }
+
+        if (options.mqttEnabled()) {
+            scheduleMQTTUpdates(masterHandler, options);
         }
 
         app.get("/rooms", ctx -> {
@@ -99,7 +115,7 @@ public class Bootstrapper {
         }
     }
 
-    private static void updateHA(IconMasterHandler masterHandler, String token, Options options) {
+    private static void scheduleHomeAssistantUpdates(IconMasterHandler masterHandler, String token, Options options) {
         var homeAssistantClient = new HomeAssistantClient(token);
         scheduler.scheduleAtFixedRate(() -> {
             try {
@@ -126,4 +142,90 @@ public class Bootstrapper {
 
         return System.getProperty("SUPERVISOR_TOKEN", "");
     }
+
+    private void scheduleMQTTUpdates(IconMasterHandler masterHandler, Options options) {
+        String clientID = UUID.randomUUID().toString();
+        try {
+            var mqttClient = new MqttClient(STR."tcp://\{options.mqttHost()}:\{options.mqttPort()}", clientID);
+            var mqttConnOptions = new MqttConnectOptions();
+            mqttConnOptions.setAutomaticReconnect(true);
+            mqttConnOptions.setCleanSession(true);
+            mqttConnOptions.setConnectionTimeout(10);
+            mqttConnOptions.setKeepAliveInterval(options.mqttKeepAlive());
+            mqttConnOptions.setUserName(options.mqttUsername());
+            mqttConnOptions.setPassword(options.mqttPassword().toCharArray());
+            mqttClient.connect(mqttConnOptions);
+            Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().unstarted(() -> {
+                try {
+                    mqttClient.close(true);
+                } catch (MqttException e) {
+                    // nop
+                }
+            }));
+            logger.info("MQTT connection established successfully");
+            scheduler.scheduleAtFixedRate(() -> {
+                try {
+                    var iconMaster = masterHandler.iconMaster();
+                    for (var room : masterHandler.listRooms()) {
+                        // first publish climate device
+                        var thermostatID = STR."danfoss_icon_thermostat_room_\{room.number()}";
+                        var entityTopic = STR."homeassistant/climate/\{thermostatID}/config";
+                        var climateEntity = room.toMQTTClimateEntity(thermostatID, STATE_TOPIC_FMT, SET_TOPIC_FMT, iconMaster);
+                        mqttClient.publish(entityTopic, Json.toJsonBytes(climateEntity), 0, false);
+
+                        // now publish update to state topic
+                        var stateTopic = String.format(STATE_TOPIC_FMT, room.number());
+                        var state = room.toState();
+                        mqttClient.publish(stateTopic, Json.toJsonBytes(state), 0, false);
+
+                        // and finally subscribe to set topic
+                        var setTopic = String.format(SET_TOPIC_FMT, room.number());
+                        subscribeToSetTopic(masterHandler, setTopic, mqttClient);
+                    }
+
+                    logger.info("MQTT sensors updated successfully");
+                } catch (Exception e) {
+                    logger.error("MQTT sensor update error", e);
+                }
+            }, 0, options.haUpdatePeriodInMinutes(), TimeUnit.MINUTES);
+        } catch (MqttException e) {
+            logger.error("Unable to connect to MQTT broker", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void subscribeToSetTopic(IconMasterHandler masterHandler, String setTopic, MqttClient mqttClient) {
+        subscribers.compute(setTopic, (key, listener) -> {
+            if (listener == null) {
+                IMqttMessageListener newListener = (_, message) -> {
+                    var setState = Json.fromString(message.toString(), MQTTSetState.class);
+                    // get room preset
+                    masterHandler.roomHandlerByNumber(setState.room_number())
+                            .ifPresent(iconRoomHandler -> {
+                                var currentRoom = iconRoomHandler.toIconRoom();
+                                var commandName = switch (currentRoom.roomMode()) {
+                                    case HOME -> "setHomeTemperature";
+                                    case AWAY -> "setAwayTemperature";
+                                    case SLEEP -> "setSleepTemperature";
+                                    default -> "";
+                                };
+                                var command = new Command(commandName, setState.room_number(), setState.temperature_target());
+                                executeCommand(masterHandler, command);
+                            });
+                };
+                try {
+                    mqttClient.subscribe(key, newListener);
+                } catch (MqttException e) {
+                    logger.error("Unable to subscribe to MQTT topic", e);
+                    throw new RuntimeException(e);
+                }
+                return newListener;
+            } else {
+                return listener;
+            }
+        });
+    }
+
+    private static final String STATE_TOPIC_FMT = "danfoss/icon/%d/state";
+    private static final String SET_TOPIC_FMT = "danfoss/icon/%d/set";
 }

@@ -8,3 +8,21 @@ configuration:
   port:
     name: "Port"
     description: "Addon web server port (default 9199)"
+  mqttEnabled:
+    name: "MQTT Enabled"
+    description: "MQTT Enabled"
+  mqttHost:
+    name: "MQTT Host"
+    description: "MQTT Host (default core-mosquitto)"
+  mqttPort:
+    name: "MQTT Port"
+    description: "MQTT Port (default 1883)"
+  mqttKeepAlive:
+    name: "MQTT Keep Alive"
+    description: "MQTT Keep Alive in seconds (default 60)"
+  mqttUsename:
+    name: "MQTT Username"
+    description: "MQTT Username"
+  mqttPassword:
+    name: "MQTT Password"
+    description: "MQTT Password"

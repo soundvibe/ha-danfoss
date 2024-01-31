@@ -1,4 +1,4 @@
-package net.soundvibe.hasio.danfoss.data;
+package net.soundvibe.hasio.ha.model;
 
 import java.util.Map;
 
