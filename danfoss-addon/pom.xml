@@ -81,6 +81,12 @@
       <version>2.10.1</version>
     </dependency>
 
+    <dependency>
+      <groupId>org.eclipse.paho</groupId>
+      <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+      <version>1.2.5</version>
+    </dependency>
+
     <!--testing-->
 
     <dependency>
@@ -107,7 +113,7 @@
           <excludes>
             <exclude>**/performance/**</exclude>
           </excludes>
-          <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+          <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED --enable-preview</argLine>
         </configuration>
       </plugin>
 

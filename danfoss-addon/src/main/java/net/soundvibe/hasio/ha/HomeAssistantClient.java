@@ -1,7 +1,7 @@
 package net.soundvibe.hasio.ha;
 
 import net.soundvibe.hasio.Json;
-import net.soundvibe.hasio.danfoss.data.State;
+import net.soundvibe.hasio.ha.model.State;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;

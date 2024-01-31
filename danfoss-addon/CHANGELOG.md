@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.0]
+
+- MQTT integration added
+
 ## [0.2.5]
 
 - Made port configurable

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -26,6 +27,9 @@ public final class Json {
 
     public static String toJsonString(Object o) {
         return GSON.toJson(o);
+    }
+    public static byte[] toJsonBytes(Object o) {
+        return GSON.toJson(o).getBytes(StandardCharsets.UTF_8);
     }
 
 }

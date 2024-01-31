@@ -1,5 +1,7 @@
 package net.soundvibe.hasio.danfoss.data;
 
+import net.soundvibe.hasio.ha.model.State;
+
 import java.time.Instant;
 import java.util.Map;
 
