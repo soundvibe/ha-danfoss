@@ -1,6 +1,6 @@
 name: "Danfoss Icon"
 description: "Danfoss Icon Master Controller Addon"
-version: "0.3.0"
+version: "0.3.1"
 slug: "danfoss"
 init: false
 url: "https://github.com/soundvibe/ha-danfoss"

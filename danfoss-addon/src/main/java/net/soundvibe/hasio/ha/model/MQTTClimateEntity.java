@@ -16,6 +16,5 @@ public record MQTTClimateEntity(String unique_id,
                                 String temperature_command_topic, String temperature_command_template,
                                 String temperature_state_topic, String temperature_state_template,
                                 String temperature_high_state_topic, String temperature_high_state_template,
-                                String temperature_low_state_topic, String temperature_low_state_template,
-                                String json_attributes_topic, String json_attributes_template
+                                String temperature_low_state_topic, String temperature_low_state_template
                                 ) {}

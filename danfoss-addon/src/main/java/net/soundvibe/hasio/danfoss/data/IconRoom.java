@@ -53,8 +53,7 @@ public record IconRoom(String name, int number, double temperature,
                 { 'temperature_target': {{ value }}, 'room_number': \{number} }""", // set target temperature
                 stateTopic, "{{ value_json.attributes.temperature_target }}", //target temperature state
                 stateTopic, "{{ value_json.attributes.temperature_high }}",
-                stateTopic, "{{ value_json.attributes.temperature_low }}",
-                stateTopic, "{{ value_json.attributes }}"
+                stateTopic, "{{ value_json.attributes.temperature_low }}"
         );
     }
 

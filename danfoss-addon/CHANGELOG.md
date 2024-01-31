@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.1]
+
+- Minor improvements
+
 ## [0.3.0]
 
 - MQTT integration added

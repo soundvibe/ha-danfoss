@@ -3,6 +3,7 @@ package net.soundvibe.hasio;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
 import net.soundvibe.hasio.danfoss.protocol.IconMasterHandler;
+import net.soundvibe.hasio.danfoss.protocol.IconRoomHandler;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import net.soundvibe.hasio.ha.HomeAssistantClient;
 import net.soundvibe.hasio.ha.model.MQTTSetState;
@@ -22,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.function.Predicate.not;
 import static net.soundvibe.hasio.danfoss.protocol.config.DanfossBindingConstants.ICON_MAX_ROOMS;
 
 public class Bootstrapper {
@@ -180,7 +182,7 @@ public class Bootstrapper {
 
                         // and finally subscribe to set topic
                         var setTopic = String.format(SET_TOPIC_FMT, room.number());
-                        subscribeToSetTopic(masterHandler, setTopic, mqttClient);
+                        subscribeToTopic(masterHandler, setTopic, mqttClient);
                     }
 
                     logger.info("MQTT sensors updated successfully");
@@ -189,39 +191,39 @@ public class Bootstrapper {
                 }
             }, 0, options.haUpdatePeriodInMinutes(), TimeUnit.MINUTES);
         } catch (MqttException e) {
-            logger.error("Unable to connect to MQTT broker", e);
+            logger.error("unable to connect to MQTT broker", e);
             throw new RuntimeException(e);
         }
     }
 
-    private void subscribeToSetTopic(IconMasterHandler masterHandler, String setTopic, MqttClient mqttClient) {
+    private void subscribeToTopic(IconMasterHandler masterHandler, String setTopic, MqttClient mqttClient) {
         subscribers.compute(setTopic, (key, listener) -> {
-            if (listener == null) {
-                IMqttMessageListener newListener = (_, message) -> {
-                    var setState = Json.fromString(message.toString(), MQTTSetState.class);
-                    // get room preset
-                    masterHandler.roomHandlerByNumber(setState.room_number())
-                            .ifPresent(iconRoomHandler -> {
-                                var currentRoom = iconRoomHandler.toIconRoom();
-                                var commandName = switch (currentRoom.roomMode()) {
-                                    case HOME -> "setHomeTemperature";
-                                    case AWAY -> "setAwayTemperature";
-                                    case SLEEP -> "setSleepTemperature";
-                                    default -> "";
-                                };
-                                var command = new Command(commandName, setState.room_number(), setState.temperature_target());
-                                executeCommand(masterHandler, command);
-                            });
-                };
-                try {
-                    mqttClient.subscribe(key, newListener);
-                } catch (MqttException e) {
-                    logger.error("Unable to subscribe to MQTT topic", e);
-                    throw new RuntimeException(e);
-                }
-                return newListener;
-            } else {
+            if (listener != null) {
                 return listener;
+            }
+
+            IMqttMessageListener newListener = (_, message) -> {
+                var setState = Json.fromString(message.toString(), MQTTSetState.class);
+                // get room preset
+                masterHandler.roomHandlerByNumber(setState.room_number())
+                        .map(IconRoomHandler::toIconRoom)
+                        .map(room -> switch (room.roomMode()) {
+                            case HOME -> "setHomeTemperature";
+                            case AWAY -> "setAwayTemperature";
+                            case SLEEP -> "setSleepTemperature";
+                            default -> "";
+                        })
+                        .filter(not(String::isEmpty))
+                        .map(cmdName -> new Command(cmdName, setState.room_number(), setState.temperature_target()))
+                        .ifPresent(command -> executeCommand(masterHandler, command));
+            };
+            try {
+                mqttClient.subscribe(key, newListener);
+                logger.info("subscribed to MQTT topic {} successfully", key);
+                return newListener;
+            } catch (MqttException e) {
+                logger.error("unable to subscribe to MQTT topic", e);
+                throw new RuntimeException(e);
             }
         });
     }

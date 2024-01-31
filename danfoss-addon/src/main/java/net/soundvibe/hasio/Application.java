@@ -72,7 +72,7 @@ public class Application {
       }</br>
       </p>
       """);
-                    logger.info("Discovered Icon house {} with {} peerId (privateKey: {}) successfully",
+                    logger.info("discovered Icon house {} with {} peerId (privateKey: {}) successfully",
                             response.houseName, response.housePeerId, Arrays.toString(bindingConfig.privateKey()));
                     Files.createDirectories(DANFOSS_CONFIG_DIR);
                     Files.writeString(DANFOSS_CONFIG_FILE, appConfigJson);
@@ -83,7 +83,7 @@ public class Application {
                     ctx.html("House was not discovered");
                 }
             } catch (Throwable e) {
-                logger.error("Failed to discover a new house", e);
+                logger.error("failed to discover a new house", e);
                 ctx.html(STR."House was not discovered because of an error: \{e.getMessage()}").status(500);
             }
         });
