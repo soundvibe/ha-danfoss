@@ -19,14 +19,14 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
+defaults:
+  run:
+    working-directory: ./danfoss-addon
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./danfoss-addon
     permissions:
       contents: read
       packages: write
@@ -58,6 +58,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
+          working-directory: ./danfoss-addon
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -77,7 +78,6 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
-          working-directory: ./danfoss-addon
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -98,4 +98,5 @@ jobs:
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         # This step uses the identity token to provision an ephemeral certificate
         # against the sigstore community Fulcio instance.
+        working-directory: ./danfoss-addon
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
