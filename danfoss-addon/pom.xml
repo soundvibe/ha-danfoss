@@ -113,7 +113,7 @@
           <excludes>
             <exclude>**/performance/**</exclude>
           </excludes>
-          <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+          <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED --enable-preview</argLine>
         </configuration>
       </plugin>
 
