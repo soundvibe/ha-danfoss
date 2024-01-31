@@ -5,9 +5,22 @@
 | Parameter               | Description                                                                                                                                                                                                |
 |-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | haUpdatePeriodInMinutes | How often Home Assistant will be updated with changes from Danfoss Icon master controller (default: 1 minute).                                                                                             
-| sensorNameFmt           | Temperature values are exposed as HA states(sensors), here you can choose how they are named (using `Java` [String.Format()](https://docs.oracle.com/javase/21/docs/api/java/util/Formatter.html#syntax)). 
+| sensorNameFmt           | Temperature values are exposed as HA states(sensors), here you can choose how they are named (using `Java` [String.Format()](https://docs.oracle.com/javase/21/docs/api/java/util/Formatter.html#syntax)). |
+| port                    | HTTP port to use for add-on's embedded web server                                                                                                                                                          |
+| mqttEnabled             | MQTT Home Assistant auto discovery is enabled                                                                                                                                                              |
+| mqttHost                | Host of MQTT broker                                                                                                                                                                                        |
+| mqttPort                | Port of MQTT broker                                                                                                                                                                                        |
+| mqttKeepAlive           | MQTT keep alive interval in seconds                                                                                                                                                                        |
+| mqttUsername            | Username to be used when connecting to MQTT broker                                                                                                                                                         |
+| mqttPassword            | Password to be used when connecting to MQTT broker                                                                                                                                                         |
 
-### Setting temperature
+## Setup climate devices in Home Assistant
+
+It is enough to enable MQTT in add-on configuration and all house thermostats will be created in Home Assistant automatically.
+
+If MQTT can't be used, it is possible to do setup climate devices in Home Assistant, but this requires more work and the following steps should be done:
+
+### 1. Setting temperature
 
 In order to set target temperature for thermostats from Home Assistant, main `configuration.yaml` should be updated, e.g.:
 
@@ -38,7 +51,7 @@ data:
   roomNumber: 3 # roomNumber is exposed as attribute in each danfoss temperature sensor entity.
 ```
 
-### Climate entity
+### 2. Climate entity
 After we defined rest command, we can set up climate entities and use thermostats in HA dashboards, f.i. using custom [Template Climate](https://github.com/jcwillox/hass-template-climate) integration.
 The `configuration.yaml` could look like this (given our sensor is exposed as `sensor.danfoss_0_temperature`):
 
