@@ -78,6 +78,7 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
+          runs-on: "homeassistant/armhf-base:latest"
           context: "./danfoss-addon"
           build-args: "BUILD_FROM=homeassistant/armhf-base:latest"
           push: ${{ github.event_name != 'pull_request' }}
