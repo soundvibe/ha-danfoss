@@ -1,5 +1,7 @@
 package net.soundvibe.hasio;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JsonMapper;
@@ -34,6 +36,7 @@ public class Application {
         var options = Options.fromPath(ADDON_CONFIG_FILE);
         logger.info("parsed options: haUpdatePeriodInMinutes={}, sensorNameFmt={}, port={}",
                 options.haUpdatePeriodInMinutes(), options.sensorNameFmt(), options.port());
+        changeRootLogLevel(options.logLevel());
 
         var app = Javalin.create(config -> {
             config.showJavalinBanner = false;
@@ -102,5 +105,13 @@ public class Application {
 
         app.start(options.port());
         logger.info("started addon");
+    }
+
+    public static void changeRootLogLevel(String level){
+        var loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+        var logger = loggerContext.getLogger("root");
+        if (logger != null) {
+            logger.setLevel(Level.toLevel(level));
+        }
     }
 }

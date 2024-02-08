@@ -55,8 +55,11 @@ public class DanfossDiscovery implements AutoCloseable {
         }
 
         var peerId = pairingConn.getPeerId();
-        // we got PeerId so we can close the connection.
         pairingConn.close();
+        if (peerId == null) {
+            throw new IllegalStateException("Expected to get server peerId but got null instead");
+        }
+        logger.info("Got server peerId: {}", SDG.bin2hex(peerId));
 
         var peerConnection = new PeerConnection();
         try {

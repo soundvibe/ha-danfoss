@@ -14,7 +14,10 @@ public record Options(
         int mqttPort,
         int mqttKeepAlive,
         String mqttUsername,
-        String mqttPassword) {
+        String mqttPassword,
+        String logLevel
+
+) {
 
     public static Options fromPath(Path path) {
         if (Files.exists(path)) {
@@ -23,7 +26,7 @@ public record Options(
 
         // serve defaults
         return new Options(1, "sensor.danfoss_%d_temperature", 9199,
-                false, "core-mosquitto", 1883, 60, "", "");
+                false, "core-mosquitto", 1883, 60, "", "", "info");
     }
 
 }
