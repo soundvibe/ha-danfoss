@@ -26,3 +26,6 @@ configuration:
   mqttPassword:
     name: "MQTT Password"
     description: "MQTT Password"
+  logLevel:
+    name: "Logger level"
+    description: "Logger level. Possible values are (one of): all,trace,debug,info,warn,error,off"
