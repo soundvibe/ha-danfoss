@@ -10,7 +10,12 @@ This addon allows you to integrate heating solutions by Danfoss company with Hom
 ### Pairing
 
 After installing addon, open it's Web UI and enter one time code and username. 
-One time code can be retrieved from Danfoss Icon official application by going to `Settings -> Share house` (use code without dashes)
+One time code can be retrieved from Danfoss Icon official Android application by going to `Settings -> Share house` (paste code without dashes)
+### Note 
+As of now, only code, generated from Danfoss `Android` app is supported. 
+It looks like iPhone app uses different protocol which isn't supported by this addon. 
+If you own iPhone, try finding Android phone to do the pairing, and once it completes, you can uninstall the app afterwards.
+
 Username can be whatever name you like.
 Click `Start` button for pairing to start.
 If everything goes well, you will see the success message.
