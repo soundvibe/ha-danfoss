@@ -6,7 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public record Options(
-        int haUpdatePeriodInMinutes,
+        int haUpdatePeriodInSeconds,
         String sensorNameFmt,
         int port,
         boolean mqttEnabled,

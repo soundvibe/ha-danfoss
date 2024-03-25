@@ -34,8 +34,8 @@ public class Application {
     public static void main(String[] args) {
         logger.info("starting danfoss icon addon...");
         var options = Options.fromPath(ADDON_CONFIG_FILE);
-        logger.info("parsed options: haUpdatePeriodInMinutes={}, sensorNameFmt={}, port={}",
-                options.haUpdatePeriodInMinutes(), options.sensorNameFmt(), options.port());
+        logger.info("parsed options: haUpdatePeriodInSeconds={}, sensorNameFmt={}, port={}",
+                options.haUpdatePeriodInSeconds(), options.sensorNameFmt(), options.port());
         changeRootLogLevel(options.logLevel());
 
         var app = Javalin.create(config -> {

@@ -4,7 +4,7 @@
 
 | Parameter               | Description                                                                                                                                                                                                |
 |-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| haUpdatePeriodInMinutes | How often Home Assistant will be updated with changes from Danfoss Icon master controller (default: 1 minute).                                                                                             |
+| haUpdatePeriodInSeconds | How often Home Assistant will be updated with changes from Danfoss Icon master controller (default: 60 seconds).                                                                                           |
 | sensorNameFmt           | Temperature values are exposed as HA states(sensors), here you can choose how they are named (using `Java` [String.Format()](https://docs.oracle.com/javase/21/docs/api/java/util/Formatter.html#syntax)). |
 | port                    | HTTP port to use for add-on's embedded web server                                                                                                                                                          |
 | mqttEnabled             | MQTT Home Assistant auto discovery is enabled                                                                                                                                                              |
