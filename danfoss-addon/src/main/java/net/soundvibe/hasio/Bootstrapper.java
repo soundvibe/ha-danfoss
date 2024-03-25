@@ -133,7 +133,7 @@ public class Bootstrapper {
             } catch (Exception e) {
                 logger.error("sensor update error", e);
             }
-        }, 1, options.haUpdatePeriodInMinutes(), TimeUnit.MINUTES);
+        }, 1, options.haUpdatePeriodInSeconds(), TimeUnit.SECONDS);
     }
 
     private String resolveToken() {
@@ -189,7 +189,7 @@ public class Bootstrapper {
                 } catch (Exception e) {
                     logger.error("MQTT sensor update error", e);
                 }
-            }, 0, options.haUpdatePeriodInMinutes(), TimeUnit.MINUTES);
+            }, 0, options.haUpdatePeriodInSeconds(), TimeUnit.SECONDS);
         } catch (MqttException e) {
             logger.error("unable to connect to MQTT broker", e);
             throw new RuntimeException(e);

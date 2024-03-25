@@ -1,6 +1,6 @@
 name: "Danfoss Icon"
 description: "Danfoss Icon Master Controller Addon"
-version: "0.3.2"
+version: "0.3.3"
 slug: "danfoss"
 init: false
 url: "https://github.com/soundvibe/ha-danfoss"
@@ -12,7 +12,7 @@ map:
 ports:
   9199/tcp: 9199
 options:
-  haUpdatePeriodInMinutes: 1
+  haUpdatePeriodInSeconds: 60
   sensorNameFmt: "sensor.danfoss_%d_temperature"
   port: 9199
   mqttEnabled: false
@@ -23,7 +23,7 @@ options:
   mqttPassword: ""
   logLevel: info
 schema:
-  haUpdatePeriodInMinutes: "int(1,60)"
+  haUpdatePeriodInSeconds: "int(1,86400)"
   sensorNameFmt: str
   port: port
   mqttEnabled: bool

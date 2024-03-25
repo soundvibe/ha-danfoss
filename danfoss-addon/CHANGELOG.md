@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.3]
+
+- HA update interval changed to seconds instead of minutes.
+
 ## [0.3.2]
 
 - Can update log level
