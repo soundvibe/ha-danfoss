@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.4]
+
+- Use set point home for target temp high and set point away for target temp low.
+
 ## [0.3.3]
 
 - HA update interval changed to seconds instead of minutes.
