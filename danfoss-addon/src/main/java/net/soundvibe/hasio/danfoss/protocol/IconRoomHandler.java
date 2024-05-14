@@ -33,6 +33,8 @@ public class IconRoomHandler implements PacketHandler {
         private RoomMode roomMode;
         private boolean manualControl;
         private HeatingState heatingState;
+        private boolean heatingCoolingOn;
+        private boolean coolingEnabled;
 
         public final int roomNumber;
 
@@ -139,11 +141,16 @@ public class IconRoomHandler implements PacketHandler {
                 }
                 break;
             case ROOM_HEATINGCOOLINGSTATE:
-                var state = pkt.getBoolean();
                 lock.writeLock().lock();
-                room.heatingState = HeatingState.from(state);
+                room.heatingCoolingOn = pkt.getBoolean();
+                room.heatingState = HeatingState.from(room.heatingCoolingOn, room.coolingEnabled);
                 lock.writeLock().unlock();
                 break;
+            case ROOM_COOLINGENABLED:
+                lock.writeLock().lock();
+                room.coolingEnabled = pkt.getBoolean();
+                room.heatingState = HeatingState.from(room.heatingCoolingOn, room.coolingEnabled);
+                lock.writeLock().unlock();
         }
     }
 
