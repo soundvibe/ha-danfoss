@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.5]
+
+- Add support for cooling mode.
+
 ## [0.3.4]
 
 - Use set point home for target temp high and set point away for target temp low.

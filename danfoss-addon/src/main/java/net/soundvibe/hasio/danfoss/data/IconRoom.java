@@ -57,6 +57,6 @@ public record IconRoom(String name, int number, double temperature,
         );
     }
 
-    private static final List<String> MODES = List.of("off", "heat");
+    private static final List<String> MODES = List.of("off", "heat", "cool");
     private static final List<String> PRESET_MODES = List.of("home", "away", "sleep");
 }
