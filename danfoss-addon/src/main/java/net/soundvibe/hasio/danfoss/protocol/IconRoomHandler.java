@@ -146,12 +146,6 @@ public class IconRoomHandler implements PacketHandler {
                 room.heatingState = HeatingState.from(room.heatingCoolingOn, room.coolingEnabled);
                 lock.writeLock().unlock();
                 break;
-            case ROOM_COOLINGENABLED:
-                lock.writeLock().lock();
-                room.coolingEnabled = pkt.getBoolean();
-                room.heatingState = HeatingState.from(room.heatingCoolingOn, room.coolingEnabled);
-                lock.writeLock().unlock();
-                break;
             case ROOM_HEATINGCOOLINGCONFIGURATION:
                 logger.debug("room heating/cooling configuration={}", pkt.getByte());
                 break;
@@ -185,6 +179,13 @@ public class IconRoomHandler implements PacketHandler {
         this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_SETPOINTASLEEP, newTemperature));
         lock.writeLock().lock();
         room.setPointSleep = newTemperature;
+        lock.writeLock().unlock();
+    }
+
+    public void setHeatingState(boolean coolingEnabled) {
+        lock.writeLock().lock();
+        room.coolingEnabled = coolingEnabled;
+        room.heatingState = HeatingState.from(room.heatingCoolingOn, coolingEnabled);
         lock.writeLock().unlock();
     }
 
