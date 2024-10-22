@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.6]
+## [0.3.7]
 
 - Added debug logging for unused heating/cooling states.
 

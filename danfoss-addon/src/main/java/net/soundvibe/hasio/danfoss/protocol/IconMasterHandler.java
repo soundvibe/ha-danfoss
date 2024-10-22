@@ -3,6 +3,8 @@ package net.soundvibe.hasio.danfoss.protocol;
 import net.soundvibe.hasio.danfoss.data.IconMaster;
 import net.soundvibe.hasio.danfoss.data.IconRoom;
 import net.soundvibe.hasio.danfoss.protocol.config.Dominion;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
@@ -21,6 +23,8 @@ import static net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgCode.*;
 public class IconMasterHandler implements PacketHandler {
     private final IconRoomHandler[] rooms = new IconRoomHandler[ICON_MAX_ROOMS];
     private final Map<String, IconRoomHandler> roomsByName = new ConcurrentHashMap<>(ICON_MAX_ROOMS * 2);
+
+    private static final Logger logger = LoggerFactory.getLogger(IconMasterHandler.class);
 
     private static class IconMasterControllerState {
         private String houseName;
@@ -139,6 +143,9 @@ public class IconMasterHandler implements PacketHandler {
                     lock.writeLock().lock();
                     state.connectionCount = pkt.getByte();
                     lock.writeLock().unlock();
+                    break;
+                case RAIL_INPUTHEATORCOOL:
+                    logger.info("rail input heat or cool={}", pkt.getByte());
                     break;
             }
         }
