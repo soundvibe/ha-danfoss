@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.8]
+
+- Fixed reporting and switching between heating/cooling modes.
+
 ## [0.3.7]
 
 - Added debug logging for unused heating/cooling states.
