@@ -153,10 +153,10 @@ public class IconRoomHandler implements PacketHandler {
                 lock.writeLock().unlock();
                 break;
             case RAIL_INPUTHEATORCOOL:
-                logger.debug("rail input heat or cool={}", pkt.getByte());
+                logger.info("rail input heat or cool={}", pkt.getByte());
                 break;
             case ROOM_HEATINGCOOLINGCONFIGURATION:
-                logger.debug("room heating/cooling configuration={}", pkt.getByte());
+                logger.info("room heating/cooling configuration={}", pkt.getByte());
                 break;
         }
     }
