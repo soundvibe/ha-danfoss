@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.6]
+
+- Added debug logging for unused heating/cooling states.
+
 ## [0.3.5]
 
 - Add support for cooling mode.
