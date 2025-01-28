@@ -199,7 +199,7 @@ public class Bootstrapper {
                         // and finally subscribe to set topic
                         var setTopic = String.format(SET_TOPIC_FMT, room.number());
                         var mqttToken = subscribeToTopic(setTopic, mqttClient);
-                        if (!mqttToken.getSessionPresent()) {
+                        if (!mqttToken.isComplete()) {
                             //force resubscribe
                             mqttClient.unsubscribe(setTopic);
                             subscribers.remove(setTopic);
@@ -210,7 +210,7 @@ public class Bootstrapper {
                 } catch (Exception e) {
                     logger.error("MQTT sensor update error", e);
                 }
-            }, 0, options.haUpdatePeriodInSeconds(), TimeUnit.SECONDS);
+            }, 1, options.haUpdatePeriodInSeconds(), TimeUnit.SECONDS);
         } catch (MqttException e) {
             logger.error("unable to connect to MQTT broker", e);
             throw new RuntimeException(e);
