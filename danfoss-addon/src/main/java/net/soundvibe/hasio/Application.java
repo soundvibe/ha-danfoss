@@ -54,6 +54,9 @@ public class Application {
             };
             config.jsonMapper(gsonMapper);
         });
+
+        var bootstrapper = new Bootstrapper(app, options);
+
         app.get("/health", ctx -> ctx.result("OK"));
         app.post("/discover", ctx -> {
             var bindingConfig = DanfossBindingConfig.create(ctx.formParam("userName"));
@@ -80,8 +83,7 @@ public class Application {
                     Files.createDirectories(DANFOSS_CONFIG_DIR);
                     Files.writeString(DANFOSS_CONFIG_FILE, appConfigJson);
                     discovery.close();
-                    var bootstrapper =  new Bootstrapper(appConfig, options);
-                    bootstrapper.bootstrap(app);
+                    bootstrapper.load(appConfig);
                 } else {
                     ctx.html("House was not discovered");
                 }
@@ -98,8 +100,7 @@ public class Application {
                 .findAny()
                 .ifPresentOrElse(appConfig -> {
                     logger.info("config file found, bootstrapping...");
-                    var bootstrapper =  new Bootstrapper(appConfig, options);
-                    bootstrapper.bootstrap(app);
+                    bootstrapper.load(appConfig);
                 }, () -> logger.info("config file not found, use ip:port/discover endpoint to discover new house"));
 
 

@@ -9,19 +9,15 @@ import net.soundvibe.hasio.ha.HomeAssistantClient;
 import net.soundvibe.hasio.ha.model.MQTTSetState;
 import net.soundvibe.hasio.model.Command;
 import net.soundvibe.hasio.model.Options;
-import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
-import org.eclipse.paho.client.mqttv3.MqttClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.function.Predicate.not;
 import static net.soundvibe.hasio.danfoss.protocol.config.DanfossBindingConstants.ICON_MAX_ROOMS;
@@ -32,20 +28,33 @@ public class Bootstrapper {
 
     private static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(16, Thread.ofVirtual().factory());
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(8, Thread.ofVirtual().factory());
-    private final AppConfig appConfig;
     private final Options options;
 
-    private final Map<String, IMqttMessageListener> subscribers = new ConcurrentHashMap<>(ICON_MAX_ROOMS * 2);
+    private final Map<String, IMqttToken> subscribers = new ConcurrentHashMap<>(ICON_MAX_ROOMS * 2);
 
-    public Bootstrapper(AppConfig appConfig, Options options) {
-        this.appConfig = appConfig;
+    private final AtomicBoolean opened = new AtomicBoolean(false);
+    private final Javalin app;
+    private final AtomicReference<IconMasterHandler> masterHandler = new AtomicReference<>();
+    private final AtomicReference<ScheduledFuture<?>> scheduleHAUpdates = new AtomicReference<>();
+    private final AtomicReference<ScheduledFuture<?>> scheduleMQTTUpdates = new AtomicReference<>();
+
+    public Bootstrapper(Javalin app, Options options) {
+        this.app = app;
         this.options = options;
     }
 
-    public void bootstrap(Javalin app) {
+    public void load(AppConfig appConfig) {
+        if (this.scheduleHAUpdates.get() != null) {
+            this.scheduleHAUpdates.get().cancel(true);
+        }
+        if (scheduleMQTTUpdates.get() != null) {
+            scheduleMQTTUpdates.get().cancel(true);
+        }
+
         var masterHandler = new IconMasterHandler(appConfig.privateKey(), executorService);
         masterHandler.scanRooms(appConfig.peerId());
         logger.info("rooms scanned: {}", appConfig.peerId());
+        this.masterHandler.set(masterHandler);
 
         var token = resolveToken();
         logger.info("SUPERVISOR_TOKEN: {}", token);
@@ -53,20 +62,24 @@ public class Bootstrapper {
             logger.warn("authorization token not found");
         } else {
             logger.info("scheduling HA state updater");
-            scheduleHomeAssistantUpdates(masterHandler, token, options);
+            this.scheduleHAUpdates.set(scheduleHomeAssistantUpdates(token, options));
         }
 
         if (options.mqttEnabled()) {
-            scheduleMQTTUpdates(masterHandler, options);
+            scheduleMQTTUpdates.set(scheduleMQTTUpdates(options));
+        }
+
+        if (opened.get()) {
+            return;
         }
 
         app.get("/rooms", ctx -> {
-            var rooms = masterHandler.listRooms();
+            var rooms = this.masterHandler.get().listRooms();
             ctx.json(rooms);
         });
         app.get("/rooms/{roomName}", ctx -> {
             var roomName = ctx.queryParam("roomName");
-            masterHandler.listRooms().stream()
+            this.masterHandler.get().listRooms().stream()
                     .filter(iconRoom -> iconRoom.name().equals(roomName))
                     .findAny()
                     .ifPresentOrElse(ctx::json, () -> ctx.status(HttpStatus.NOT_FOUND));
@@ -74,7 +87,7 @@ public class Bootstrapper {
         app.post("/command", ctx -> {
             try {
                 var command = Json.fromString(ctx.body(), Command.class);
-                executeCommand(masterHandler, command);
+                executeCommand(command);
                 ctx.status(200)
                         .result("""
             { "status": "OK" }""")
@@ -87,12 +100,13 @@ public class Bootstrapper {
                         .contentType("application/json");
             }
         });
+        opened.set(true);
     }
 
-    private void executeCommand(IconMasterHandler masterHandler, Command cmd) {
+    private void executeCommand(Command cmd) {
         logger.info("executing cmd: {}", cmd.command());
 
-        var maybeRoom = masterHandler.roomHandlerByNumber(cmd.roomNumber());
+        var maybeRoom = this.masterHandler.get().roomHandlerByNumber(cmd.roomNumber());
         if (maybeRoom.isEmpty()) {
             logger.info("room not found: {}", cmd.roomNumber());
             return;
@@ -117,9 +131,10 @@ public class Bootstrapper {
         }
     }
 
-    private static void scheduleHomeAssistantUpdates(IconMasterHandler masterHandler, String token, Options options) {
+    private ScheduledFuture<?> scheduleHomeAssistantUpdates(String token, Options options) {
+        var masterHandler = this.masterHandler.get();
         var homeAssistantClient = new HomeAssistantClient(token);
-        scheduler.scheduleAtFixedRate(() -> {
+        return scheduler.scheduleAtFixedRate(() -> {
             try {
                 for (var room : masterHandler.listRooms()) {
                     var sensorName = String.format(options.sensorNameFmt(), room.number());
@@ -145,7 +160,7 @@ public class Bootstrapper {
         return System.getProperty("SUPERVISOR_TOKEN", "");
     }
 
-    private void scheduleMQTTUpdates(IconMasterHandler masterHandler, Options options) {
+    private ScheduledFuture<?> scheduleMQTTUpdates(Options options) {
         String clientID = UUID.randomUUID().toString();
         try {
             var mqttClient = new MqttClient(STR."tcp://\{options.mqttHost()}:\{options.mqttPort()}", clientID);
@@ -165,7 +180,8 @@ public class Bootstrapper {
                 }
             }));
             logger.info("MQTT connection established successfully");
-            scheduler.scheduleAtFixedRate(() -> {
+            return scheduler.scheduleAtFixedRate(() -> {
+                var masterHandler = this.masterHandler.get();
                 try {
                     var iconMaster = masterHandler.iconMaster();
                     for (var room : masterHandler.listRooms()) {
@@ -182,9 +198,14 @@ public class Bootstrapper {
 
                         // and finally subscribe to set topic
                         var setTopic = String.format(SET_TOPIC_FMT, room.number());
-                        subscribeToTopic(masterHandler, setTopic, mqttClient);
+                        var mqttToken = subscribeToTopic(setTopic, mqttClient);
+                        if (!mqttToken.getSessionPresent()) {
+                            //force resubscribe
+                            mqttClient.unsubscribe(setTopic);
+                            subscribers.remove(setTopic);
+                            logger.info("MQTT subscriber removed = {}", setTopic);
+                        }
                     }
-
                     logger.info("MQTT sensors updated successfully");
                 } catch (Exception e) {
                     logger.error("MQTT sensor update error", e);
@@ -196,31 +217,38 @@ public class Bootstrapper {
         }
     }
 
-    private void subscribeToTopic(IconMasterHandler masterHandler, String setTopic, MqttClient mqttClient) {
-        subscribers.compute(setTopic, (key, listener) -> {
+    private IMqttToken subscribeToTopic(String setTopic, MqttClient mqttClient) {
+        return subscribers.compute(setTopic, (key, listener) -> {
             if (listener != null) {
                 return listener;
             }
 
             IMqttMessageListener newListener = (_, message) -> {
-                var setState = Json.fromString(message.toString(), MQTTSetState.class);
-                // get room preset
-                masterHandler.roomHandlerByNumber(setState.room_number())
-                        .map(IconRoomHandler::toIconRoom)
-                        .map(room -> switch (room.roomMode()) {
-                            case HOME -> "setHomeTemperature";
-                            case AWAY -> "setAwayTemperature";
-                            case SLEEP -> "setSleepTemperature";
-                            default -> "";
-                        })
-                        .filter(not(String::isEmpty))
-                        .map(cmdName -> new Command(cmdName, setState.room_number(), setState.temperature_target()))
-                        .ifPresent(command -> executeCommand(masterHandler, command));
+                try {
+                    var setState = Json.fromString(message.toString(), MQTTSetState.class);
+                    // get room preset
+                    masterHandler.get().roomHandlerByNumber(setState.room_number())
+                            .map(IconRoomHandler::toIconRoom)
+                            .map(room -> switch (room.roomMode()) {
+                                case HOME -> "setHomeTemperature";
+                                case AWAY -> "setAwayTemperature";
+                                case SLEEP -> "setSleepTemperature";
+                                default -> "";
+                            })
+                            .filter(not(String::isEmpty))
+                            .map(cmdName -> new Command(cmdName, setState.room_number(), setState.temperature_target()))
+                            .ifPresent(this::executeCommand);
+                } catch (Throwable e) {
+                    logger.warn("got error on topic listener", e);
+                }
             };
             try {
-                mqttClient.subscribe(key, newListener);
+                var token = mqttClient.subscribeWithResponse(key, newListener);
+                if (token.getException() != null) {
+                    throw token.getException();
+                }
                 logger.info("subscribed to MQTT topic {} successfully", key);
-                return newListener;
+                return token;
             } catch (MqttException e) {
                 logger.error("unable to subscribe to MQTT topic", e);
                 throw new RuntimeException(e);
