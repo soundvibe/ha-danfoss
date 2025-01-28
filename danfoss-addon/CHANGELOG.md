@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.9]
+
+- Trying to fix MQTT subscriptions and app rediscovery.
+
 ## [0.3.8]
 
 - Fixed reporting and switching between heating/cooling modes.
