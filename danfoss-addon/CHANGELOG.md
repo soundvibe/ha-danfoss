@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.3]
+
+- Trying to fix M4 Mac bug.
+
 ## [0.3.9]
 
 - Trying to fix MQTT subscriptions and app rediscovery.
