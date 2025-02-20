@@ -94,9 +94,9 @@ public class Bootstrapper {
                         .contentType("application/json");
             } catch (Throwable e) {
                 ctx.status(500)
-                        .result(STR."""
-                        "status": "error", "error": "\{ e.getMessage() }"
-                        """)
+                        .result(String.format("""
+                        "status": "error", "error": "%s"
+                        """, e.getMessage()))
                         .contentType("application/json");
             }
         });
@@ -163,7 +163,7 @@ public class Bootstrapper {
     private ScheduledFuture<?> scheduleMQTTUpdates(Options options) {
         String clientID = UUID.randomUUID().toString();
         try {
-            var mqttClient = new MqttClient(STR."tcp://\{options.mqttHost()}:\{options.mqttPort()}", clientID);
+            var mqttClient = new MqttClient(String.format("tcp://%s:%s", options.mqttHost(), options.mqttPort()), clientID);
             var mqttConnOptions = new MqttConnectOptions();
             mqttConnOptions.setAutomaticReconnect(true);
             mqttConnOptions.setCleanSession(true);
@@ -186,8 +186,8 @@ public class Bootstrapper {
                     var iconMaster = masterHandler.iconMaster();
                     for (var room : masterHandler.listRooms()) {
                         // first publish climate device
-                        var thermostatID = STR."danfoss_icon_thermostat_room_\{room.number()}";
-                        var entityTopic = STR."homeassistant/climate/\{thermostatID}/config";
+                        var thermostatID = String.format("danfoss_icon_thermostat_room_%s", room.number());
+                        var entityTopic = String.format("homeassistant/climate/%s/config", thermostatID);
                         var climateEntity = room.toMQTTClimateEntity(thermostatID, STATE_TOPIC_FMT, SET_TOPIC_FMT, iconMaster);
                         mqttClient.publish(entityTopic, Json.toJsonBytes(climateEntity), 0, false);
 

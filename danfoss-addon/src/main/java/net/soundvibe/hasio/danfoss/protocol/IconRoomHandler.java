@@ -45,7 +45,25 @@ public class IconRoomHandler implements PacketHandler {
 
         @Override
         public String toString() {
-            return STR."Room{roomName='\{roomName}\{'\''}, temperature=\{temperature}, temperatureFloor=\{temperatureFloor}, temperatureFloorMin=\{temperatureFloorMin}, temperatureFloorMax=\{temperatureFloorMax}, setPointHigh=\{setPointHigh}, setPointLow=\{setPointLow}, setPointHome=\{setPointHome}, setPointAway=\{setPointAway}, setPointSleep=\{setPointSleep}, batteryPercent=\{batteryPercent}, roomMode=\{roomMode}, manualControl=\{manualControl}, heatingState=\{heatingState}, roomNumber=\{roomNumber}\{'}'}";
+            return "Room{" +
+                    "roomName='" + roomName + '\'' +
+                    ", temperature=" + temperature +
+                    ", temperatureFloor=" + temperatureFloor +
+                    ", temperatureFloorMin=" + temperatureFloorMin +
+                    ", temperatureFloorMax=" + temperatureFloorMax +
+                    ", setPointHigh=" + setPointHigh +
+                    ", setPointLow=" + setPointLow +
+                    ", setPointHome=" + setPointHome +
+                    ", setPointAway=" + setPointAway +
+                    ", setPointSleep=" + setPointSleep +
+                    ", batteryPercent=" + batteryPercent +
+                    ", roomMode=" + roomMode +
+                    ", manualControl=" + manualControl +
+                    ", heatingState=" + heatingState +
+                    ", heatingCoolingOn=" + heatingCoolingOn +
+                    ", coolingEnabled=" + coolingEnabled +
+                    ", roomNumber=" + roomNumber +
+                    '}';
         }
     }
 
