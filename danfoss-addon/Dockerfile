@@ -1,3 +1,6 @@
+ARG BUILD_FROM
+ARG BUILD_VERSION
+
 FROM eclipse-temurin:21-jdk-alpine AS build
 
 # Copy only the necessary files for the build stage.
@@ -8,8 +11,7 @@ COPY src src
 
 RUN ./mvnw clean package -DskipTests
 
-ARG BUILD_FROM
-ARG BUILD_VERSION
+
 FROM $BUILD_FROM AS run
 
 # Add labels for better image management
