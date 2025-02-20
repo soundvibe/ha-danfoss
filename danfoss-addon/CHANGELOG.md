@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.0]
+
+- Fixing M4 Mac chips incompatibility when running inside VMs.
+
 ## [0.3.9]
 
 - Trying to fix MQTT subscriptions and app rediscovery.
