@@ -23,6 +23,13 @@ LABEL description="Home Assistant Danfoss Icon Add-on"
 
 RUN mkdir -p /share/danfoss-icon/
 
+# syntax=docker/dockerfile:1
+RUN <<EOT
+cat > /etc/apk/repositories << EOF; $(echo)
+https://dl-cdn.alpinelinux.org/alpine/v$(cut -d'.' -f1,2 /etc/alpine-release)/main/
+https://dl-cdn.alpinelinux.org/alpine/v$(cut -d'.' -f1,2 /etc/alpine-release)/community/
+https://dl-cdn.alpinelinux.org/alpine/edge/testing/
+EOT
 RUN apk add --no-cache openjdk23
 
 WORKDIR /
