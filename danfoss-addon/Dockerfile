@@ -1,7 +1,7 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-RUN mkdir -p /share/danfoss-icon/
+# RUN mkdir -p /share/danfoss-icon/
 
 RUN apk add --no-cache openjdk21
 
