@@ -1,13 +1,15 @@
 ARG BUILD_FROM
 ARG BUILD_VERSION
 
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM eclipse-temurin:23-jdk-alpine AS build
 
 # Copy only the necessary files for the build stage.
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 COPY src src
+
+ENV JAVA_TOOL_OPTIONS="-XX:UseSVE=0"
 
 RUN ./mvnw clean package -DskipTests
 
@@ -21,7 +23,7 @@ LABEL description="Home Assistant Danfoss Icon Add-on"
 
 RUN mkdir -p /share/danfoss-icon/
 
-RUN apk add --no-cache openjdk21
+RUN apk add --no-cache openjdk23
 
 WORKDIR /
 

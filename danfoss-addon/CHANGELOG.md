@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.2]
+
+- Upgraded to Java 23.
+
 ## [0.4.0]
 
 - Fixing M4 Mac chips incompatibility when running inside VMs.

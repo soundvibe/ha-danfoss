@@ -20,7 +20,7 @@ public class HomeAssistantClient {
     private static final String HA_CORE_API = "http://supervisor/core/api";
 
     public HomeAssistantClient(String token) {
-        this.token = STR."Bearer \{token}";
+        this.token = String.format("Bearer %s", token);
         this.httpClient = new OkHttpClient.Builder()
                 .followRedirects(false)
                 .build();
