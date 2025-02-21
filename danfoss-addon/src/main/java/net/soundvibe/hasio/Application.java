@@ -34,7 +34,7 @@ public class Application {
     public static void main(String[] args) {
         logger.info("starting danfoss icon addon...");
         var options = Options.fromPath(ADDON_CONFIG_FILE);
-        logger.info("parsed options: {}}", options.toString());
+        logger.info("parsed options: {}", options.toString());
         changeRootLogLevel(options.logLevel());
 
         var app = Javalin.create(config -> {

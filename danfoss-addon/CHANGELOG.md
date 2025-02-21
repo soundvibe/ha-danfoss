@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.4]
+
+- Reverted M4 Mac bugfix because it breaks some other cpu architectures. Will fix in later releases.
+
 ## [0.4.3]
 
 - Trying to fix M4 Mac bug.
