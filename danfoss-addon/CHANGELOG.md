@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.5]
+
+- Added new config option `m4FixEnabled` which could be enabled to fix Mac M4 startup bug.
+
 ## [0.4.4]
 
 - Reverted M4 Mac bugfix because it breaks some other cpu architectures. Will fix in later releases.

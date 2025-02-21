@@ -20,7 +20,7 @@ configuration:
   mqttKeepAlive:
     name: "MQTT Keep Alive"
     description: "MQTT Keep Alive in seconds (default 60)"
-  mqttUsename:
+  mqttUsername:
     name: "MQTT Username"
     description: "MQTT Username"
   mqttPassword:
@@ -29,3 +29,6 @@ configuration:
   logLevel:
     name: "Logger level"
     description: "Logger level. Possible values are (one of): all,trace,debug,info,warn,error,off"
+  m4FixEnabled:
+    name: "Mac M4 Fix Enabled"
+    description: "If you are running HA on Mac M4 chipset, you might need to enable this option to fix startup issues"
