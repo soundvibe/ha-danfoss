@@ -2,13 +2,12 @@
 
 echo "Starting app..."
 
-JAVA_ARGS=""
 M4_FIX_ENABLED="$(bashio::config 'm4FixEnabled')"
 
 if [[ "$M4_FIX_ENABLED" == "true" ]]; then
-  JAVA_ARGS="-XX:UseSVE=0"
+  export JAVA_TOOL_OPTIONS="-XX:UseSVE=0"
 fi
 
-echo $JAVA_ARGS
+echo "$JAVA_TOOL_OPTIONS"
 
-java --enable-preview $JAVA_ARGS -jar app.jar
+java --enable-preview -jar app.jar
