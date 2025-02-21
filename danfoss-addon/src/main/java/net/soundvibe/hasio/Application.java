@@ -34,7 +34,7 @@ public class Application {
     public static void main(String[] args) {
         logger.info("starting danfoss icon addon...");
         var options = Options.fromPath(ADDON_CONFIG_FILE);
-        logger.info("parsed options: {}}", options.toString());
+        logger.info("parsed options: {}", options.toString());
         changeRootLogLevel(options.logLevel());
 
         var app = Javalin.create(config -> {
@@ -65,18 +65,18 @@ public class Application {
                     // persist
                     var appConfig = new AppConfig(bindingConfig.privateKey(), bindingConfig.userName(), response.housePeerId);
                     var appConfigJson = Json.toJsonString(appConfig);
-                    ctx.html(STR."""
-      <h1>Discovered Icon house <b>\{response.houseName}</b> successfully</h1>
+                    ctx.html(String.format("""
+      <h1>Discovered Icon house <b>%s</b> successfully</h1>
       <p>Write the following config to <i>/share/danfoss-icon/danfoss_config.json</i> if addon won't start properly</p>
       <h3>danfoss_config.json</h3>
       <p style="background:#9FE2BF">
       {</br>
-      &nbsp;&nbsp;"privateKey": \{ Arrays.toString(appConfig.privateKey()) },</br>
-      &nbsp;&nbsp;"userName": "\{ appConfig.userName() }",</br>
-      &nbsp;&nbsp;"peerId": "\{ appConfig.peerId() }"</br>
+      &nbsp;&nbsp;"privateKey": %s,</br>
+      &nbsp;&nbsp;"userName": "%s",</br>
+      &nbsp;&nbsp;"peerId": "%s"</br>
       }</br>
       </p>
-      """);
+      """, response.houseName, Arrays.toString(appConfig.privateKey()), appConfig.userName(), appConfig.peerId()));
                     logger.info("discovered Icon house {} with {} peerId (privateKey: {}) successfully",
                             response.houseName, response.housePeerId, Arrays.toString(bindingConfig.privateKey()));
                     Files.createDirectories(DANFOSS_CONFIG_DIR);
@@ -88,7 +88,7 @@ public class Application {
                 }
             } catch (Throwable e) {
                 logger.error("failed to discover a new house", e);
-                ctx.html(STR."House was not discovered because of an error: \{e.getMessage()}").status(500);
+                ctx.html(String.format("House was not discovered because of an error: %s", e.getMessage())).status(500);
             }
         });
 

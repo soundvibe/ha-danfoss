@@ -218,7 +218,7 @@ public class Dominion {
 
         @Override
         public String toString() {
-            return STR."\{Major}.\{Minor}";
+            return String.format("%s.%s", Major, Minor);
         }
     }
 

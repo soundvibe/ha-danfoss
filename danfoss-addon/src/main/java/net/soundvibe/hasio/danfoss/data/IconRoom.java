@@ -49,8 +49,8 @@ public record IconRoom(String name, int number, double temperature,
                 stateTopic, "{{ value_json.attributes.mode }}",
                 PRESET_MODES, setTempTopic,
                 stateTopic, "{{ value_json.attributes.preset }}",
-                setTempTopic, STR."""
-                { 'temperature_target': {{ value }}, 'room_number': \{number} }""", // set target temperature
+                setTempTopic, String.format("""
+                { 'temperature_target': {{ value }}, 'room_number': %s }""", number), // set target temperature
                 stateTopic, "{{ value_json.attributes.temperature_target }}", //target temperature state
                 stateTopic, "{{ value_json.attributes.temperature_home }}",
                 stateTopic, "{{ value_json.attributes.temperature_away }}"
