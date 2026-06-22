@@ -2,18 +2,318 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SetUp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danfoss Icon Discovery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #fafafa;
+            color: #212121;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            max-width: 420px;
+            width: 100%;
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 16px;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #212121;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: #757575;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #616161;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            background: #fafafa;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            color: #212121;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #03a9f4;
+            box-shadow: 0 0 0 3px rgba(3, 169, 244, 0.12);
+            background: #ffffff;
+        }
+
+        input[type="text"].error {
+            border-color: #f44336;
+            box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.12);
+        }
+
+        .error-message {
+            color: #f44336;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: block;
+        }
+
+        .help-text {
+            font-size: 0.8rem;
+            color: #757575;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        .help-text strong {
+            color: #616161;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 8px;
+            border: none;
+            border-radius: 8px;
+            background: #03a9f4;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover:not(:disabled) {
+            background: #0288d1;
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background: #bdbdbd;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        .spinner.visible {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .feedback {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .feedback.visible {
+            display: block;
+        }
+
+        .feedback.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .feedback.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+    </style>
 </head>
 <body>
 
-<h2>Danfoss Icon Discovery</h2>
-<form method="post" action="/discover">
-    <label for="oneTimeCode">One Time Code:</label>
-    <input type="text" id="oneTimeCode" name="oneTimeCode"><br><br>
-    <label for="userName">UserName:</label>
-    <input type="text" id="userName" name="userName"><br><br>
-    <button>Start</button>
-</form>
+<div class="card">
+    <img src="icon.png" alt="Danfoss Icon Logo" class="logo">
+    <h2>Danfoss Icon Discovery</h2>
+    <p class="subtitle">Enter your one-time code and a username to start pairing with your Danfoss Icon system.</p>
+
+    <form id="discoveryForm" method="post" action="/discover">
+        <div class="form-group">
+            <label for="oneTimeCode">One Time Code</label>
+            <input type="text" id="oneTimeCode" name="oneTimeCode" placeholder="Enter code without dashes">
+            <span class="error-message" id="codeError">Please enter a one-time code.</span>
+            <p class="help-text">Open the Danfoss Icon app on your Android or iOS device, go to <strong>Settings → Share House</strong> to get your one-time code. Paste the code without dashes.</p>
+        </div>
+
+        <div class="form-group">
+            <label for="userName">Username</label>
+            <input type="text" id="userName" name="userName" placeholder="Choose a username">
+            <span class="error-message" id="userError">Please enter a username.</span>
+        </div>
+
+        <button type="submit" id="submitBtn">
+            <span class="spinner" id="spinner"></span>
+            <span id="btnText">Start</span>
+        </button>
+
+        <div class="feedback" id="feedback"></div>
+    </form>
+</div>
+
+<script>
+    (function() {
+        const form = document.getElementById('discoveryForm');
+        const oneTimeCode = document.getElementById('oneTimeCode');
+        const userName = document.getElementById('userName');
+        const submitBtn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btnText');
+        const feedback = document.getElementById('feedback');
+        const codeError = document.getElementById('codeError');
+        const userError = document.getElementById('userError');
+
+        function showFeedback(message, isSuccess) {
+            feedback.textContent = message;
+            feedback.className = 'feedback visible ' + (isSuccess ? 'success' : 'error');
+        }
+
+        function clearFeedback() {
+            feedback.className = 'feedback';
+            feedback.textContent = '';
+        }
+
+        function setLoading(loading) {
+            submitBtn.disabled = loading;
+            spinner.classList.toggle('visible', loading);
+            btnText.textContent = loading ? 'Starting...' : 'Start';
+        }
+
+        function validate() {
+            let valid = true;
+
+            if (!oneTimeCode.value.trim()) {
+                oneTimeCode.classList.add('error');
+                codeError.classList.add('visible');
+                valid = false;
+            } else {
+                oneTimeCode.classList.remove('error');
+                codeError.classList.remove('visible');
+            }
+
+            if (!userName.value.trim()) {
+                userName.classList.add('error');
+                userError.classList.add('visible');
+                valid = false;
+            } else {
+                userName.classList.remove('error');
+                userError.classList.remove('visible');
+            }
+
+            return valid;
+        }
+
+        oneTimeCode.addEventListener('input', function() {
+            if (oneTimeCode.value.trim()) {
+                oneTimeCode.classList.remove('error');
+                codeError.classList.remove('visible');
+            }
+        });
+
+        userName.addEventListener('input', function() {
+            if (userName.value.trim()) {
+                userName.classList.remove('error');
+                userError.classList.remove('visible');
+            }
+        });
+
+        form.addEventListener('submit', function(event) {
+            clearFeedback();
+
+            if (!validate()) {
+                event.preventDefault();
+                showFeedback('Please fill in all required fields.', false);
+                return;
+            }
+
+            setLoading(true);
+
+            // If the backend handles the POST directly and returns a new page,
+            // we let the form submit normally. If it returns JSON or we want
+            // to handle responses manually, we could use fetch here.
+            // For now, we show the loading state and let the native form submission proceed.
+        });
+
+        // If the page was loaded with an error query parameter from the backend,
+        // display it as feedback.
+        const urlParams = new URLSearchParams(window.location.search);
+        const errorMsg = urlParams.get('error');
+        const successMsg = urlParams.get('success');
+        if (errorMsg) {
+            showFeedback(decodeURIComponent(errorMsg), false);
+        } else if (successMsg) {
+            showFeedback(decodeURIComponent(successMsg), true);
+        }
+    })();
+</script>
 
 </body>
 </html>
