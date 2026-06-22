@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.7]
+
+- Fixed swapped heating/cooling status reported in issue #31. Room heating/cooling state is now read directly from the protocol byte (0=OFF, 1=HEAT, 2=COOL) instead of being inferred from a master-level boolean signal.
+- Simplified release pipeline: JAR is built via GitHub Actions and downloaded from releases during Docker image build.
+- Fixed Dockerfile compatibility with Home Assistant Supervisor 2026.04.0+ by using explicit `FROM` directive.
+
 ## [0.4.6]
 
 - Simplified a release process.
