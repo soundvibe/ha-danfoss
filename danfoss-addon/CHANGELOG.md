@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.6]
+
+- Simplified a release process.
+
 ## [0.4.5]
 
 - Added new config option `m4FixEnabled` which could be enabled to fix Mac M4 startup bug.
