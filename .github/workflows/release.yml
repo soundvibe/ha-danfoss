@@ -1,0 +1,59 @@
+name: Release Build
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build JAR with Maven
+        run: |
+          cd danfoss-addon
+          mvn clean package -B -DskipTests
+          echo "--- Built JAR ---"
+          ls -lh target/
+
+      - name: Verify add-on version
+        run: |
+          ADDON_VERSION=$(grep '^version:' danfoss-addon/config.yaml | sed 's/version: *"//;s/"$//')
+          echo "Add-on version from config.yaml: $ADDON_VERSION"
+          echo "GitHub release tag: ${{ github.event.release.tag_name }}"
+          echo ""
+          echo "Make sure these match — that's what the Dockerfile uses to download the right JAR."
+
+      - name: Copy JAR to stable name for release
+        run: |
+          mkdir -p release-assets
+          # Copy to a version-agnostic filename so Docker URL never changes
+          cp danfoss-addon/target/ha-danfoss-addon-*.jar release-assets/ha-danfoss-addon.jar
+
+      - name: Upload JAR to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            release-assets/ha-danfoss-addon.jar \
+            --repo ${{ github.repository }}
+
+      - name: Verify release asset URL
+        run: |
+          echo "JAR will be available at:"
+          echo "https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/ha-danfoss-addon.jar"
+          echo ""
+          echo "Latest redirect URL:"
+          echo "https://github.com/${{ github.repository }}/releases/latest/download/ha-danfoss-addon.jar"

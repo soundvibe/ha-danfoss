@@ -3,7 +3,6 @@
 .metadata
 .classpath
 .gradle
-../.idea
 *.iml
 *.ipr
 *.iws
