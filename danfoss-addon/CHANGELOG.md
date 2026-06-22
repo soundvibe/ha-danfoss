@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.8]
+
+- Fixed NullPointerException in `IconMaster.toState()` when nullable string/Instant fields were not yet populated from device packets.
+- Modernized discovery UI.
+- Added Maven Wrapper to the project.
+
 ## [0.4.7]
 
 - Fixed swapped heating/cooling status reported in issue #31. Room heating/cooling state is now read directly from the protocol byte (0=OFF, 1=HEAT, 2=COOL) instead of being inferred from a master-level boolean signal.

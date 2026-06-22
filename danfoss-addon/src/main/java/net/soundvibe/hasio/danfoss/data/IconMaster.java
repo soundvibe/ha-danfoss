@@ -22,15 +22,15 @@ public record IconMaster(
         return new State(Instant.now().toString(), Map.ofEntries(
                 entry("device_class", "timestamp"),
                 entry("state_class", "measurement"),
-                entry("house_name", houseName),
+                entry("house_name", String.valueOf(houseName)),
                 entry("pause_set_point", String.valueOf(pauseSetPoint)),
                 entry("vacation_set_point", String.valueOf(vacationSetPoint)),
-                entry( "hardware_revision", hardwareRevision),
-                entry( "software_revision", softwareRevision),
-                entry( "serial_number", serialNumber),
+                entry( "hardware_revision", String.valueOf(hardwareRevision)),
+                entry( "software_revision", String.valueOf(softwareRevision)),
+                entry( "serial_number", String.valueOf(serialNumber)),
                 entry("software_build_revision", String.valueOf(softwareBuildRevision)),
                 entry("connection_count", String.valueOf(connectionCount)),
-                entry("production_date", productionDate.toString())
+                entry("production_date", String.valueOf(productionDate))
         ));
     }
 
