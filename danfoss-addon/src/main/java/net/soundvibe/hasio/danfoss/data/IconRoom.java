@@ -1,6 +1,7 @@
 package net.soundvibe.hasio.danfoss.data;
 
 import net.soundvibe.hasio.ha.model.MQTTClimateEntity;
+import net.soundvibe.hasio.ha.model.MQTTSensorEntity;
 import net.soundvibe.hasio.ha.model.State;
 
 import java.util.List;
@@ -40,10 +41,10 @@ public record IconRoom(String name, int number, double temperature,
     public MQTTClimateEntity toMQTTClimateEntity(String id, String stateTopicFmt, String setTopicFmt, IconMaster iconMaster) {
         var stateTopic = String.format(stateTopicFmt, number);
         var setTempTopic = String.format(setTopicFmt, number);
-        return new MQTTClimateEntity(id, name, MODES, temperatureLow, temperatureHigh, 0.5,
-                Map.of("name", iconMaster.houseName(), "model", "Icon", "manufacturer", "Danfoss",
+        return new MQTTClimateEntity(id, "Thermostat", MODES, temperatureLow, temperatureHigh, 0.5,
+                Map.of("name", name + " Danfoss Icon", "model", "Icon", "manufacturer", "Danfoss",
                         "hw_version", iconMaster.hardwareRevision(), "sw_version", iconMaster.softwareRevision(),
-                        "identifiers", iconMaster.serialNumber()),
+                        "identifiers", id, "serial_number", iconMaster.serialNumber()),
                 stateTopic, "{{ value_json.attributes.availability }}",
                 stateTopic, "{{ value_json.state }}",
                 stateTopic, "{{ value_json.attributes.mode }}",
@@ -54,6 +55,30 @@ public record IconRoom(String name, int number, double temperature,
                 stateTopic, "{{ value_json.attributes.temperature_target }}", //target temperature state
                 stateTopic, "{{ value_json.attributes.temperature_home }}",
                 stateTopic, "{{ value_json.attributes.temperature_away }}"
+        );
+    }
+
+    public MQTTSensorEntity toMQTTBatterySensorEntity(String id, String stateTopicFmt, IconMaster iconMaster) {
+        var stateTopic = String.format(stateTopicFmt, number);
+
+        return new MQTTSensorEntity(
+            id + "_battery", // unique ID
+            "Battery Level", // friendly name
+            "sensor", // component type
+            String.format(stateTopic, number), // state topic
+            "{{ value_json.attributes.battery_level }}", // value template
+            "%", // unit
+            "battery", // device class
+            "measurement", // state class
+            Map.of(
+                "name", name + " Danfoss Icon",
+                "model", "Icon",
+                "manufacturer", "Danfoss",
+                "hw_version", iconMaster.hardwareRevision(),
+                "sw_version", iconMaster.softwareRevision(),
+                "identifiers", id,
+                "serial_number", iconMaster.serialNumber()
+            )
         );
     }
 
