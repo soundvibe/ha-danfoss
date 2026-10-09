@@ -1,6 +1,7 @@
 package net.soundvibe.hasio.danfoss.data;
 
 import net.soundvibe.hasio.ha.model.MQTTClimateEntity;
+import net.soundvibe.hasio.ha.model.MQTTSensorEntity;
 import net.soundvibe.hasio.ha.model.State;
 
 import java.util.List;
@@ -11,6 +12,15 @@ import static java.util.Map.entry;
 public record IconRoom(String name, int number, double temperature,
                        double temperatureHome, double temperatureAway, double temperatureSleep, double temperatureHigh, double temperatureLow,
                        short batteryPercent, HeatingState mode, RoomMode roomMode) {
+
+    /**
+     * The Danfoss master only pushes a battery indication for battery-powered (wireless) thermostats,
+     * so a reported value above 0% identifies the device as battery-powered.
+     * Mains-powered thermostats never report a battery indication and stay at the default 0%.
+     */
+    public boolean hasBattery() {
+        return batteryPercent > 0;
+    }
 
     public State toState() {
         var temperatureTarget = switch (roomMode) {
@@ -55,6 +65,17 @@ public record IconRoom(String name, int number, double temperature,
                 stateTopic, "{{ value_json.attributes.temperature_home }}",
                 stateTopic, "{{ value_json.attributes.temperature_away }}"
         );
+    }
+
+    public MQTTSensorEntity toMQTTBatterySensorEntity(String id, String stateTopicFmt, IconMaster iconMaster) {
+        var stateTopic = String.format(stateTopicFmt, number);
+        return new MQTTSensorEntity(id, STR."\{name} battery",
+                Map.of("name", iconMaster.houseName(), "model", "Icon", "manufacturer", "Danfoss",
+                        "hw_version", iconMaster.hardwareRevision(), "sw_version", iconMaster.softwareRevision(),
+                        "identifiers", iconMaster.serialNumber()),
+                stateTopic, "{{ value_json.attributes.availability }}",
+                stateTopic, "{{ value_json.attributes.battery_level }}",
+                "battery", "measurement", "%", "diagnostic");
     }
 
     private static final List<String> MODES = List.of("off", "heat", "cool");
