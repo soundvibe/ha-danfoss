@@ -191,6 +191,14 @@ public class Bootstrapper {
                         var climateEntity = room.toMQTTClimateEntity(thermostatID, STATE_TOPIC_FMT, SET_TOPIC_FMT, iconMaster);
                         mqttClient.publish(entityTopic, Json.toJsonBytes(climateEntity), 0, false);
 
+                        // publish battery sensor for battery-powered (wireless) thermostats
+                        if (room.hasBattery()) {
+                            var batteryID = STR."\{thermostatID}_battery";
+                            var batteryTopic = STR."homeassistant/sensor/\{batteryID}/config";
+                            var batteryEntity = room.toMQTTBatterySensorEntity(batteryID, STATE_TOPIC_FMT, iconMaster);
+                            mqttClient.publish(batteryTopic, Json.toJsonBytes(batteryEntity), 0, false);
+                        }
+
                         // now publish update to state topic
                         var stateTopic = String.format(STATE_TOPIC_FMT, room.number());
                         var state = room.toState();

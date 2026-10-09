@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.9]
+
+- Added a battery level sensor for battery-powered (wireless) Icon thermostats, published via MQTT discovery and grouped with the thermostat device in Home Assistant. The sensor is only created for rooms that have reported a battery indication (> 0%); mains-powered thermostats get no battery entity.
+
 ## [0.4.8]
 
 - Fixed NullPointerException in `IconMaster.toState()` when nullable string/Instant fields were not yet populated from device packets.
