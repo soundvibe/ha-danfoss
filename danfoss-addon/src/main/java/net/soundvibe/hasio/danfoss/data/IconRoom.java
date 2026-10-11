@@ -13,6 +13,14 @@ public record IconRoom(String name, int number, double temperature,
                        double temperatureHome, double temperatureAway, double temperatureSleep, double temperatureHigh, double temperatureLow,
                        short batteryPercent, HeatingState mode, RoomMode roomMode) {
 
+    public boolean isReady() {
+        return mode != null && roomMode != null && !name.isEmpty()
+                && Double.isFinite(temperature) && Double.isFinite(temperatureHome)
+                && Double.isFinite(temperatureAway) && Double.isFinite(temperatureSleep)
+                && Double.isFinite(temperatureLow) && Double.isFinite(temperatureHigh)
+                && temperatureLow < temperatureHigh;
+    }
+
     /**
      * The Danfoss master only pushes a battery indication for battery-powered (wireless) thermostats,
      * so a reported value above 0% identifies the device as battery-powered.
@@ -43,6 +51,12 @@ public record IconRoom(String name, int number, double temperature,
                 entry( "temperature_target", String.valueOf(temperatureTarget)),
                 entry("room_number", String.valueOf(number)),
                 entry("mode", mode.name().toLowerCase()),
+                entry("hvac_mode", hvacMode()),
+                entry("hvac_action", switch (mode) {
+                    case OFF -> "idle";
+                    case HEAT -> "heating";
+                    case COOL -> "cooling";
+                }),
                 entry("preset", roomMode.name().toLowerCase())
         ));
     }
@@ -50,20 +64,20 @@ public record IconRoom(String name, int number, double temperature,
     public MQTTClimateEntity toMQTTClimateEntity(String id, String stateTopicFmt, String setTopicFmt, IconMaster iconMaster) {
         var stateTopic = String.format(stateTopicFmt, number);
         var setTempTopic = String.format(setTopicFmt, number);
-        return new MQTTClimateEntity(id, name, MODES, temperatureLow, temperatureHigh, 0.5,
+        // Only advertise the current operating mode: no verified HVAC write command exists.
+        return new MQTTClimateEntity(id, name, List.of(hvacMode()), temperatureLow, temperatureHigh, 0.5,
                 Map.of("name", iconMaster.houseName(), "model", "Icon", "manufacturer", "Danfoss",
                         "hw_version", iconMaster.hardwareRevision(), "sw_version", iconMaster.softwareRevision(),
                         "identifiers", iconMaster.serialNumber()),
                 stateTopic, "{{ value_json.attributes.availability }}",
                 stateTopic, "{{ value_json.state }}",
-                stateTopic, "{{ value_json.attributes.mode }}",
+                stateTopic, "{{ value_json.attributes.hvac_mode }}",
+                stateTopic, "{{ value_json.attributes.hvac_action }}",
                 PRESET_MODES, setTempTopic,
                 stateTopic, "{{ value_json.attributes.preset }}",
                 setTempTopic, STR."""
-                { 'temperature_target': {{ value }}, 'room_number': \{number} }""", // set target temperature
-                stateTopic, "{{ value_json.attributes.temperature_target }}", //target temperature state
-                stateTopic, "{{ value_json.attributes.temperature_home }}",
-                stateTopic, "{{ value_json.attributes.temperature_away }}"
+                { "temperature_target": {{ value }}, "room_number": \{number} }""",
+                stateTopic, "{{ value_json.attributes.temperature_target }}"
         );
     }
 
@@ -78,6 +92,10 @@ public record IconRoom(String name, int number, double temperature,
                 "battery", "measurement", "%", "diagnostic");
     }
 
-    private static final List<String> MODES = List.of("off", "heat", "cool");
+    /** Icon reports activity, not an independently writable HVAC mode. */
+    public String hvacMode() {
+        return mode == HeatingState.COOL ? "cool" : "heat";
+    }
+
     private static final List<String> PRESET_MODES = List.of("home", "away", "sleep");
 }
