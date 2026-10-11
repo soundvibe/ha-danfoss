@@ -8,4 +8,4 @@ if [[ "$M4_FIX_ENABLED" == "true" ]]; then
   export JAVA_TOOL_OPTIONS="-XX:UseSVE=0"
 fi
 
-java --enable-preview -jar app.jar
+exec java --enable-preview -jar app.jar

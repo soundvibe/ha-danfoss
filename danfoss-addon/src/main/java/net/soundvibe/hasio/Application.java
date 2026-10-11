@@ -77,8 +77,8 @@ public class Application {
       }</br>
       </p>
       """);
-                    logger.info("discovered Icon house {} with {} peerId (privateKey: {}) successfully",
-                            response.houseName, response.housePeerId, Arrays.toString(bindingConfig.privateKey()));
+                    logger.info("discovered Icon house {} with {} peerId successfully",
+                            response.houseName, response.housePeerId);
                     Files.createDirectories(DANFOSS_CONFIG_DIR);
                     Files.writeString(DANFOSS_CONFIG_FILE, appConfigJson);
                     discovery.close();

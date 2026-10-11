@@ -8,10 +8,13 @@ import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 /** One subscription per connection, re-created after every clean-session reconnect. */
 public final class RoomMqttClient implements AutoCloseable {
@@ -20,6 +23,7 @@ public final class RoomMqttClient implements AutoCloseable {
     public static final String SET_TOPIC_FMT = "danfoss/icon/%d/set";
     private final MqttClient client;
     private volatile boolean subscribed;
+    private final Map<Integer, IconRoom> lastPublishedRooms = new HashMap<>();
 
     public RoomMqttClient(MqttClient client, IntFunction<Optional<IconRoomHandler>> rooms,
                           Executor executor, Runnable publishUpdates) {
@@ -76,8 +80,14 @@ public final class RoomMqttClient implements AutoCloseable {
     }
 
     public void publishRooms(IconMaster master, List<IconRoom> rooms) throws MqttException {
+        publishRooms(master, () -> rooms);
+    }
+
+    public synchronized void publishRooms(IconMaster master, Supplier<List<IconRoom>> rooms) throws MqttException {
         ensureSubscribed();
-        for (var room : rooms) {
+        // Take snapshots inside the publication lock: a periodic refresh must not send
+        // an older snapshot after the fast updater has published newer feedback.
+        for (var room : rooms.get()) {
             if (!room.isReady()) continue;
             var id = STR."danfoss_icon_thermostat_room_\{room.number()}";
             client.publish(STR."homeassistant/climate/\{id}/config",
@@ -87,13 +97,27 @@ public final class RoomMqttClient implements AutoCloseable {
                 client.publish(STR."homeassistant/sensor/\{batteryId}/config",
                         Json.toJsonBytes(room.toMQTTBatterySensorEntity(batteryId, STATE_TOPIC_FMT, master)), 1, true);
             }
-            // State remains live, so a retained old temperature cannot masquerade as a fresh reading.
-            client.publish(String.format(STATE_TOPIC_FMT, room.number()), Json.toJsonBytes(room.toState()), 0, false);
+            publishState(room);
         }
     }
 
+    public synchronized void publishChangedRoomStates(Supplier<List<IconRoom>> rooms) throws MqttException {
+        if (!client.isConnected()) return;
+        for (var room : rooms.get()) {
+            if (room.isReady() && !room.equals(lastPublishedRooms.get(room.number()))) {
+                publishState(room);
+            }
+        }
+    }
+
+    private void publishState(IconRoom room) throws MqttException {
+        // Only confirmed controller snapshots; never retain an old reading as fresh.
+        client.publish(String.format(STATE_TOPIC_FMT, room.number()), Json.toJsonBytes(room.toState()), 0, false);
+        lastPublishedRooms.put(room.number(), room);
+    }
+
     @Override
-    public void close() {
+    public synchronized void close() {
         try {
             if (client.isConnected()) client.disconnect();
             client.close(true);

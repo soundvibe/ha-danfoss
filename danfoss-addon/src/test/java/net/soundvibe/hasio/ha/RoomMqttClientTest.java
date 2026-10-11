@@ -159,6 +159,39 @@ class RoomMqttClientTest {
         assertEquals(20.5, writes.getFirst().getDecimal());
     }
 
+    @Test
+    void fast_updates_publish_only_changed_controller_feedback_without_extra_discovery() throws Exception {
+        var bridge = bridge();
+        var state = new LinkedBlockingQueue<MqttMessage>();
+        var configs = new LinkedBlockingQueue<MqttMessage>();
+        var observer = client();
+        observer.connect(options());
+        observer.subscribe("danfoss/icon/1/state", 0, (topic, message) -> state.add(message));
+        observer.subscribe("homeassistant/climate/+/config", 0, (topic, message) -> configs.add(message));
+        for (int i = 0; i < 10; i++) assertNotNull(configs.poll(5, TimeUnit.SECONDS));
+        java.util.function.Supplier<List<net.soundvibe.hasio.danfoss.data.IconRoom>> snapshot =
+                () -> rooms.values().stream().map(IconRoomHandler::toIconRoom).toList();
+
+        bridge.publishChangedRoomStates(snapshot);
+        assertNull(state.poll(200, TimeUnit.MILLISECONDS), "Unchanged state must not be repeatedly sent");
+        observer.publish("danfoss/icon/1/set", "{\"temperature_target\":22.5}".getBytes(), 1, false);
+        await(() -> writes.size() == 2);
+        bridge.publishChangedRoomStates(snapshot);
+        assertNull(state.poll(200, TimeUnit.MILLISECONDS), "A command alone is not controller feedback");
+
+        rooms.get(1).handlePacket(new Dominion.Packet(net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgClass.ROOM_FIRST + 1,
+                net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgCode.ROOM_SETPOINTATHOME, 22.5));
+        bridge.publishChangedRoomStates(snapshot);
+        var message = state.poll(5, TimeUnit.SECONDS);
+        assertNotNull(message, "Confirmed target must be published without waiting for periodic refresh");
+        assertFalse(message.isRetained());
+        assertEquals("22.5", JsonParser.parseString(message.toString()).getAsJsonObject()
+                .getAsJsonObject("attributes").get("temperature_target").getAsString());
+        bridge.publishChangedRoomStates(snapshot);
+        assertNull(state.poll(200, TimeUnit.MILLISECONDS));
+        assertNull(configs.poll(200, TimeUnit.MILLISECONDS), "Fast feedback must not resend discovery");
+    }
+
     private static void await(BooleanSupplier condition) throws Exception {
         long deadline = System.nanoTime() + Duration.ofSeconds(15).toNanos();
         while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(20);

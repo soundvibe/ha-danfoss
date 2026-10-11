@@ -19,6 +19,17 @@ public record Options(
 
 ) {
 
+    @Override
+    public String toString() {
+        // Keep diagnostic settings useful without exposing the broker credential.
+        return "Options[haUpdatePeriodInSeconds=" + haUpdatePeriodInSeconds
+                + ", sensorNameFmt=" + sensorNameFmt + ", port=" + port
+                + ", mqttEnabled=" + mqttEnabled + ", mqttHost=" + mqttHost
+                + ", mqttPort=" + mqttPort + ", mqttKeepAlive=" + mqttKeepAlive
+                + ", mqttUsername=" + mqttUsername + ", mqttPassword=<redacted>"
+                + ", logLevel=" + logLevel + "]";
+    }
+
     public static Options fromPath(Path path) {
         if (Files.exists(path)) {
             return Json.fromPath(path, Options.class);

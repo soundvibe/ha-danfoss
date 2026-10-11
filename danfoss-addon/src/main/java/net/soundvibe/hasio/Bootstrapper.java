@@ -33,6 +33,7 @@ public class Bootstrapper {
     private final AtomicReference<IconMasterHandler> masterHandler = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> scheduleHAUpdates = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> scheduleMQTTUpdates = new AtomicReference<>();
+    private final AtomicReference<ScheduledFuture<?>> scheduleChangedMQTTUpdates = new AtomicReference<>();
 
     public Bootstrapper(Javalin app, Options options) {
         this.app = app;
@@ -46,6 +47,9 @@ public class Bootstrapper {
         if (scheduleMQTTUpdates.get() != null) {
             scheduleMQTTUpdates.get().cancel(true);
         }
+
+        var changedUpdates = scheduleChangedMQTTUpdates.getAndSet(null);
+        if (changedUpdates != null) changedUpdates.cancel(true);
 
         var previousMqttClient = roomMqttClient.getAndSet(null);
         if (previousMqttClient != null) previousMqttClient.close();
@@ -172,6 +176,9 @@ public class Bootstrapper {
             mqttClient.connect(mqttConnOptions);
             Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().unstarted(roomClient::close));
             logger.info("MQTT connection established successfully");
+            // Compare local controller snapshots; this makes no extra Danfoss requests.
+            scheduleChangedMQTTUpdates.set(scheduler.scheduleWithFixedDelay(this::publishChangedMQTTStates,
+                    500, 500, TimeUnit.MILLISECONDS));
             return scheduler.scheduleAtFixedRate(this::publishMQTTUpdates,
                     1, options.haUpdatePeriodInSeconds(), TimeUnit.SECONDS);
         } catch (MqttException e) {
@@ -185,10 +192,20 @@ public class Bootstrapper {
         if (client == null) return;
         try {
             var master = masterHandler.get();
-            client.publishRooms(master.iconMaster(), master.listRooms());
+            client.publishRooms(master.iconMaster(), master::listRooms);
             logger.info("MQTT sensors updated successfully");
         } catch (Exception e) {
             logger.error("MQTT sensor update error", e);
         }
     }
+    private void publishChangedMQTTStates() {
+        var client = roomMqttClient.get();
+        if (client == null) return;
+        try {
+            client.publishChangedRoomStates(masterHandler.get()::listRooms);
+        } catch (Exception e) {
+            logger.warn("Unable to publish changed MQTT room states", e);
+        }
+    }
+
 }
