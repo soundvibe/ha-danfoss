@@ -42,7 +42,7 @@ These tests do not replace hardware verification. Before release, install the up
 
 ### Hardware checks, 2026-10-12
 
-A local build of commit `d77126c` was exercised on an existing Icon underfloor heating installation with ten rooms, using its saved pairing and existing MQTT identities. Checks completed so far:
+Local builds of commits `d77126c` and `d719abc` were exercised on an existing Icon underfloor heating installation with ten rooms, using its saved pairing and existing MQTT identities. Completed checks:
 
 - HA displayed a single active target and heating mode with idle action for all ten rooms.
 - A HA target change reached the controller and was independently confirmed in the Danfoss app. Changing the target back in the Danfoss app reached HA.
@@ -50,6 +50,7 @@ A local build of commit `d77126c` was exercised on an existing Icon underfloor h
 - All original profile temperatures and presets were restored and compared across the ten rooms.
 - The twenty climate/battery entity IDs were unchanged, and all twenty discovery messages were received as retained messages by a new subscriber.
 - After restarting Home Assistant, all ten rooms retained their original profiles and presets.
+- With the faster feedback build (`d719abc`), a HA target command was observed at 00:19:42 and confirmed target state at 00:19:43 (timestamps rounded to seconds). This preceded the next configured periodic refresh. The original target was restored; all ten rooms’ profiles and presets again matched the baseline. Password redaction was also verified in the running build.
 - After restarting the add-on, the ten rooms retained their original profiles and presets. The direct MQTT command `{"temperature_target":22.5,"room_number":1}` was accepted, and the existing REST `setHomeTemperature` command restored the original target.
 
 These checks establish command/feedback behavior; they do not measure the floor's thermal response or verify HVAC enable/disable and idle cooling behavior. A production MQTT broker restart has not been performed; broker reconnect is covered by the automated broker tests.
