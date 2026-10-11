@@ -3,24 +3,20 @@ package net.soundvibe.hasio;
 import io.javalin.Javalin;
 import io.javalin.http.HttpStatus;
 import net.soundvibe.hasio.danfoss.protocol.IconMasterHandler;
-import net.soundvibe.hasio.danfoss.protocol.IconRoomHandler;
 import net.soundvibe.hasio.danfoss.protocol.config.AppConfig;
 import net.soundvibe.hasio.ha.HomeAssistantClient;
-import net.soundvibe.hasio.ha.model.MQTTSetState;
+import net.soundvibe.hasio.ha.RoomMqttClient;
 import net.soundvibe.hasio.model.Command;
 import net.soundvibe.hasio.model.Options;
 import org.eclipse.paho.client.mqttv3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static java.util.function.Predicate.not;
-import static net.soundvibe.hasio.danfoss.protocol.config.DanfossBindingConstants.ICON_MAX_ROOMS;
 
 public class Bootstrapper {
 
@@ -30,13 +26,14 @@ public class Bootstrapper {
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(8, Thread.ofVirtual().factory());
     private final Options options;
 
-    private final Map<String, IMqttToken> subscribers = new ConcurrentHashMap<>(ICON_MAX_ROOMS * 2);
+    private final AtomicReference<RoomMqttClient> roomMqttClient = new AtomicReference<>();
 
     private final AtomicBoolean opened = new AtomicBoolean(false);
     private final Javalin app;
     private final AtomicReference<IconMasterHandler> masterHandler = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> scheduleHAUpdates = new AtomicReference<>();
     private final AtomicReference<ScheduledFuture<?>> scheduleMQTTUpdates = new AtomicReference<>();
+    private final AtomicReference<ScheduledFuture<?>> scheduleChangedMQTTUpdates = new AtomicReference<>();
 
     public Bootstrapper(Javalin app, Options options) {
         this.app = app;
@@ -51,13 +48,18 @@ public class Bootstrapper {
             scheduleMQTTUpdates.get().cancel(true);
         }
 
+        var changedUpdates = scheduleChangedMQTTUpdates.getAndSet(null);
+        if (changedUpdates != null) changedUpdates.cancel(true);
+
+        var previousMqttClient = roomMqttClient.getAndSet(null);
+        if (previousMqttClient != null) previousMqttClient.close();
+
         var masterHandler = new IconMasterHandler(appConfig.privateKey(), executorService);
         masterHandler.scanRooms(appConfig.peerId());
         logger.info("rooms scanned: {}", appConfig.peerId());
         this.masterHandler.set(masterHandler);
 
         var token = resolveToken();
-        logger.info("SUPERVISOR_TOKEN: {}", token);
         if (token.isEmpty()) {
             logger.warn("authorization token not found");
         } else {
@@ -92,12 +94,10 @@ public class Bootstrapper {
                         .result("""
             { "status": "OK" }""")
                         .contentType("application/json");
-            } catch (Throwable e) {
-                ctx.status(500)
-                        .result(STR."""
-                        "status": "error", "error": "\{ e.getMessage() }"
-                        """)
-                        .contentType("application/json");
+            } catch (IllegalArgumentException e) {
+                ctx.status(400).json(java.util.Map.of("status", "error", "error", e.getMessage()));
+            } catch (Exception e) {
+                ctx.status(500).json(java.util.Map.of("status", "error", "error", e.toString()));
             }
         });
         opened.set(true);
@@ -108,8 +108,7 @@ public class Bootstrapper {
 
         var maybeRoom = this.masterHandler.get().roomHandlerByNumber(cmd.roomNumber());
         if (maybeRoom.isEmpty()) {
-            logger.info("room not found: {}", cmd.roomNumber());
-            return;
+            throw new IllegalArgumentException("Room not found: " + cmd.roomNumber());
         }
         var roomHandler =  maybeRoom.get();
 
@@ -127,7 +126,7 @@ public class Bootstrapper {
                 break;
             }
             default:
-                logger.warn("unknown command: {}", cmd.command());
+                throw new IllegalArgumentException("Unknown command: " + cmd.command());
         }
     }
 
@@ -137,6 +136,7 @@ public class Bootstrapper {
         return scheduler.scheduleAtFixedRate(() -> {
             try {
                 for (var room : masterHandler.listRooms()) {
+                    if (!room.isReady()) continue;
                     var sensorName = String.format(options.sensorNameFmt(), room.number());
                     var state = room.toState();
                     homeAssistantClient.upsertState(state, sensorName);
@@ -161,9 +161,11 @@ public class Bootstrapper {
     }
 
     private ScheduledFuture<?> scheduleMQTTUpdates(Options options) {
-        String clientID = UUID.randomUUID().toString();
         try {
-            var mqttClient = new MqttClient(STR."tcp://\{options.mqttHost()}:\{options.mqttPort()}", clientID);
+            var mqttClient = new MqttClient(STR."tcp://\{options.mqttHost()}:\{options.mqttPort()}", UUID.randomUUID().toString());
+            var roomClient = new RoomMqttClient(mqttClient,
+                    number -> this.masterHandler.get().roomHandlerByNumber(number), scheduler, this::publishMQTTUpdates);
+            roomMqttClient.set(roomClient);
             var mqttConnOptions = new MqttConnectOptions();
             mqttConnOptions.setAutomaticReconnect(true);
             mqttConnOptions.setCleanSession(true);
@@ -172,98 +174,38 @@ public class Bootstrapper {
             mqttConnOptions.setUserName(options.mqttUsername());
             mqttConnOptions.setPassword(options.mqttPassword().toCharArray());
             mqttClient.connect(mqttConnOptions);
-            Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().unstarted(() -> {
-                try {
-                    mqttClient.close(true);
-                } catch (MqttException e) {
-                    // nop
-                }
-            }));
+            Runtime.getRuntime().addShutdownHook(Thread.ofVirtual().unstarted(roomClient::close));
             logger.info("MQTT connection established successfully");
-            return scheduler.scheduleAtFixedRate(() -> {
-                var masterHandler = this.masterHandler.get();
-                try {
-                    var iconMaster = masterHandler.iconMaster();
-                    for (var room : masterHandler.listRooms()) {
-                        // first publish climate device
-                        var thermostatID = STR."danfoss_icon_thermostat_room_\{room.number()}";
-                        var entityTopic = STR."homeassistant/climate/\{thermostatID}/config";
-                        var climateEntity = room.toMQTTClimateEntity(thermostatID, STATE_TOPIC_FMT, SET_TOPIC_FMT, iconMaster);
-                        mqttClient.publish(entityTopic, Json.toJsonBytes(climateEntity), 0, false);
-
-                        // publish battery sensor for battery-powered (wireless) thermostats
-                        if (room.hasBattery()) {
-                            var batteryID = STR."\{thermostatID}_battery";
-                            var batteryTopic = STR."homeassistant/sensor/\{batteryID}/config";
-                            var batteryEntity = room.toMQTTBatterySensorEntity(batteryID, STATE_TOPIC_FMT, iconMaster);
-                            mqttClient.publish(batteryTopic, Json.toJsonBytes(batteryEntity), 0, false);
-                        }
-
-                        // now publish update to state topic
-                        var stateTopic = String.format(STATE_TOPIC_FMT, room.number());
-                        var state = room.toState();
-                        mqttClient.publish(stateTopic, Json.toJsonBytes(state), 0, false);
-
-                        // and finally subscribe to set topic
-                        var setTopic = String.format(SET_TOPIC_FMT, room.number());
-                        var mqttToken = subscribeToTopic(setTopic, mqttClient);
-                        if (!mqttToken.isComplete()) {
-                            //force resubscribe
-                            mqttClient.unsubscribe(setTopic);
-                            subscribers.remove(setTopic);
-                            logger.info("MQTT subscriber removed = {}", setTopic);
-                        }
-                    }
-                    logger.info("MQTT sensors updated successfully");
-                } catch (Exception e) {
-                    logger.error("MQTT sensor update error", e);
-                }
-            }, 1, options.haUpdatePeriodInSeconds(), TimeUnit.SECONDS);
+            // Compare local controller snapshots; this makes no extra Danfoss requests.
+            scheduleChangedMQTTUpdates.set(scheduler.scheduleWithFixedDelay(this::publishChangedMQTTStates,
+                    500, 500, TimeUnit.MILLISECONDS));
+            return scheduler.scheduleAtFixedRate(this::publishMQTTUpdates,
+                    1, options.haUpdatePeriodInSeconds(), TimeUnit.SECONDS);
         } catch (MqttException e) {
             logger.error("unable to connect to MQTT broker", e);
             throw new RuntimeException(e);
         }
     }
 
-    private IMqttToken subscribeToTopic(String setTopic, MqttClient mqttClient) {
-        return subscribers.compute(setTopic, (key, listener) -> {
-            if (listener != null) {
-                return listener;
-            }
-
-            IMqttMessageListener newListener = (_, message) -> {
-                try {
-                    var setState = Json.fromString(message.toString(), MQTTSetState.class);
-                    // get room preset
-                    masterHandler.get().roomHandlerByNumber(setState.room_number())
-                            .map(IconRoomHandler::toIconRoom)
-                            .map(room -> switch (room.roomMode()) {
-                                case HOME -> "setHomeTemperature";
-                                case AWAY -> "setAwayTemperature";
-                                case SLEEP -> "setSleepTemperature";
-                                default -> "";
-                            })
-                            .filter(not(String::isEmpty))
-                            .map(cmdName -> new Command(cmdName, setState.room_number(), setState.temperature_target()))
-                            .ifPresent(this::executeCommand);
-                } catch (Throwable e) {
-                    logger.warn("got error on topic listener", e);
-                }
-            };
-            try {
-                var token = mqttClient.subscribeWithResponse(key, newListener);
-                if (token.getException() != null) {
-                    throw token.getException();
-                }
-                logger.info("subscribed to MQTT topic {} successfully", key);
-                return token;
-            } catch (MqttException e) {
-                logger.error("unable to subscribe to MQTT topic", e);
-                throw new RuntimeException(e);
-            }
-        });
+    private void publishMQTTUpdates() {
+        var client = roomMqttClient.get();
+        if (client == null) return;
+        try {
+            var master = masterHandler.get();
+            client.publishRooms(master.iconMaster(), master::listRooms);
+            logger.info("MQTT sensors updated successfully");
+        } catch (Exception e) {
+            logger.error("MQTT sensor update error", e);
+        }
+    }
+    private void publishChangedMQTTStates() {
+        var client = roomMqttClient.get();
+        if (client == null) return;
+        try {
+            client.publishChangedRoomStates(masterHandler.get()::listRooms);
+        } catch (Exception e) {
+            logger.warn("Unable to publish changed MQTT room states", e);
+        }
     }
 
-    private static final String STATE_TOPIC_FMT = "danfoss/icon/%d/state";
-    private static final String SET_TOPIC_FMT = "danfoss/icon/%d/set";
 }

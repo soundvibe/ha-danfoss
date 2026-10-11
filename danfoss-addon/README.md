@@ -32,6 +32,8 @@ Remaining battery percentage is written into entity attributes - `battery_level`
 
 If MQTT is enabled in add-on configuration, all house thermostats will be exposed as climate devices in Home Assistant.
 
+MQTT topics, command payloads and restart checks are described in [MQTT.md](MQTT.md).
+
 ### Documentation
 
 Documentation on how Home Assistant [climate](https://developers.home-assistant.io/docs/core/entity/climate/) entities (thermostats) might be created can be found [here](DOCS.md).

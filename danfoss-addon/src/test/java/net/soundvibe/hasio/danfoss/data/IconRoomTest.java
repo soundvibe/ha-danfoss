@@ -5,6 +5,9 @@ import net.soundvibe.hasio.model.Command;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import com.google.gson.JsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +15,45 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class IconRoomTest {
+
+    @ParameterizedTest
+    @EnumSource(value = RoomMode.class, names = {"HOME", "AWAY", "SLEEP"})
+    void discovery_has_one_active_setpoint_and_preserves_entity_identity(RoomMode preset) {
+        var room = new IconRoom("Living Room", 1, 22.3, 23.5, 15.0, 19.0,
+                35.0, 5.0, (short) 99, HeatingState.OFF, preset);
+        var master = new IconMaster("House", 21.0, 10.0, "1.0", "2.0", "12345", 1, 0, null);
+        var entity = room.toMQTTClimateEntity("danfoss_icon_thermostat_room_1", "danfoss/icon/%d/state", "danfoss/icon/%d/set", master);
+        var json = JsonParser.parseString(Json.toJsonString(entity)).getAsJsonObject();
+        assertFalse(json.has("temperature_high_state_topic"));
+        assertFalse(json.has("temperature_low_state_topic"));
+        assertEquals("danfoss_icon_thermostat_room_1", entity.unique_id());
+        assertEquals("12345", entity.device().get("identifiers"));
+        assertEquals("danfoss/icon/1/set", entity.temperature_command_topic());
+        assertEquals("{{ value_json.attributes.temperature_target }}", entity.temperature_state_template());
+        assertEquals("{{ value_json.attributes.hvac_mode }}", entity.mode_state_template());
+        assertEquals("{{ value_json.attributes.hvac_action }}", entity.action_template());
+        assertEquals(java.util.List.of("heat"), entity.modes());
+        assertFalse(json.has("mode_command_topic"));
+        assertEquals(java.util.List.of("home", "away", "sleep"), entity.preset_modes());
+        var target = switch (preset) { case HOME -> "23.5"; case AWAY -> "15.0"; case SLEEP -> "19.0"; default -> throw new AssertionError(); };
+        assertEquals(target, room.toState().attributes().get("temperature_target"));
+        var rendered = entity.temperature_command_template().replace("{{ value }}", "22.5");
+        assertEquals(22.5, JsonParser.parseString(rendered).getAsJsonObject().get("temperature_target").getAsDouble());
+    }
+
+    @ParameterizedTest
+    @EnumSource(HeatingState.class)
+    void reports_activity_separately_from_hvac_mode(HeatingState activity) {
+        var room = new IconRoom("Room", 1, 22.3, 23.5, 15.0, 19.0,
+                35.0, 5.0, (short) 99, activity, RoomMode.HOME);
+        var attributes = room.toState().attributes();
+        assertEquals(activity.name().toLowerCase(), attributes.get("mode")); // Legacy sensor automations.
+        assertEquals(activity == HeatingState.COOL ? "cool" : "heat", attributes.get("hvac_mode"));
+        assertEquals(switch (activity) { case OFF -> "idle"; case HEAT -> "heating"; case COOL -> "cooling"; }, attributes.get("hvac_action"));
+        assertEquals("23.5", attributes.get("temperature_home"));
+        assertEquals("15.0", attributes.get("temperature_away"));
+        assertEquals("19.0", attributes.get("temperature_sleep"));
+    }
 
     private static final Logger logger = LoggerFactory.getLogger(IconRoomTest.class);
 

@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 
 import static net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgClass.ROOM_FIRST;
 import static net.soundvibe.hasio.danfoss.protocol.config.Icon.MsgCode.*;
@@ -39,6 +40,12 @@ public class IconRoomHandler implements PacketHandler {
         private Room(int roomNumber) {
             this.roomNumber = roomNumber;
             this.roomName = "";
+            this.temperature = Double.NaN;
+            this.setPointHome = Double.NaN;
+            this.setPointAway = Double.NaN;
+            this.setPointSleep = Double.NaN;
+            this.setPointLow = Double.NaN;
+            this.setPointHigh = Double.NaN;
         }
 
         @Override
@@ -48,14 +55,18 @@ public class IconRoomHandler implements PacketHandler {
     }
 
     private final Room room;
-    private final SDGPeerConnector connector;
+    private final Consumer<Dominion.Packet> sendPacket;
     public final int roomNumber;
     private final ReadWriteLock lock;
 
     public IconRoomHandler(SDGPeerConnector connector, int roomNumber) {
+        this(connector::SendPacket, roomNumber);
+    }
+
+    public IconRoomHandler(Consumer<Dominion.Packet> sendPacket, int roomNumber) {
         this.room = new Room(roomNumber);
         this.lock = new ReentrantReadWriteLock(true);
-        this.connector = connector;
+        this.sendPacket = sendPacket;
         this.roomNumber = roomNumber;
     }
 
@@ -159,28 +170,53 @@ public class IconRoomHandler implements PacketHandler {
     }
 
     public void refresh() {
-        this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_ROOMTEMPERATURE));
+        sendPacket.accept(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_ROOMTEMPERATURE));
     }
 
     public void setHomeTemperature(double newTemperature) {
-        this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_SETPOINTATHOME, newTemperature));
-        lock.writeLock().lock();
-        room.setPointHome = newTemperature;
-        lock.writeLock().unlock();
+        setTemperature(ROOM_SETPOINTATHOME, newTemperature);
     }
 
     public void setAwayTemperature(double newTemperature) {
-        this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_SETPOINTAWAY, newTemperature));
-        lock.writeLock().lock();
-        room.setPointAway = newTemperature;
-        lock.writeLock().unlock();
+        setTemperature(ROOM_SETPOINTAWAY, newTemperature);
     }
 
     public void setSleepTemperature(double newTemperature) {
-        this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_SETPOINTASLEEP, newTemperature));
-        lock.writeLock().lock();
-        room.setPointSleep = newTemperature;
-        lock.writeLock().unlock();
+        setTemperature(ROOM_SETPOINTASLEEP, newTemperature);
+    }
+
+    private void setTemperature(int code, double temperature) {
+        var snapshot = toIconRoom();
+        if (!Double.isFinite(temperature) || !Double.isFinite(snapshot.temperatureLow())
+                || !Double.isFinite(snapshot.temperatureHigh())
+                || temperature < snapshot.temperatureLow() || temperature > snapshot.temperatureHigh()) {
+            throw new IllegalArgumentException("Temperature outside reported room limits");
+        }
+        sendPacket.accept(new Dominion.Packet(ROOM_FIRST + roomNumber, code, temperature));
+        // Only packets returned by the controller may update the reported setpoint.
+        sendPacket.accept(new Dominion.Packet(ROOM_FIRST + roomNumber, code));
+    }
+
+    public void setTargetTemperature(double temperature) {
+        var preset = toIconRoom().roomMode();
+        if (preset == null) throw new IllegalStateException("Room preset not received yet");
+        switch (preset) {
+            case HOME -> setHomeTemperature(temperature);
+            case AWAY -> setAwayTemperature(temperature);
+            case SLEEP -> setSleepTemperature(temperature);
+            case FATAL -> throw new IllegalStateException("Room is in fatal mode");
+        }
+    }
+
+    public void setPreset(RoomMode preset) {
+        byte value = switch (preset) {
+            case HOME -> Icon.RoomMode.AtHome;
+            case AWAY -> Icon.RoomMode.Away;
+            case SLEEP -> Icon.RoomMode.Asleep;
+            case FATAL -> throw new IllegalArgumentException("Fatal is not a selectable preset");
+        };
+        sendPacket.accept(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_ROOMMODE, value));
+        sendPacket.accept(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_ROOMMODE));
     }
 
     private void setRoomMode(byte mode) {
