@@ -210,7 +210,7 @@ public class IconRoomHandler implements PacketHandler {
         try {
             return new IconRoom(room.roomName, room.roomNumber, room.temperature,
                     room.setPointHome, room.setPointAway, room.setPointSleep, room.setPointHigh, room.setPointLow,
-                    room.batteryPercent, room.heatingState, room.roomMode);
+                    room.temperatureFloor, room.batteryPercent, room.heatingState, room.roomMode);
         } finally {
             lock.readLock().unlock();
         }

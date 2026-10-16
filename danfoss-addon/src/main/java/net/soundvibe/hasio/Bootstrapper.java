@@ -199,6 +199,14 @@ public class Bootstrapper {
                             mqttClient.publish(batteryTopic, Json.toJsonBytes(batteryEntity), 0, false);
                         }
 
+                        // publish floor temperature sensor for thermostats with a floor sensor (e.g. infrared)
+                        if (room.hasFloorSensor()) {
+                            var floorID = STR."\{thermostatID}_floor_temperature";
+                            var floorTopic = STR."homeassistant/sensor/\{floorID}/config";
+                            var floorEntity = room.toMQTTFloorSensorEntity(floorID, STATE_TOPIC_FMT, iconMaster);
+                            mqttClient.publish(floorTopic, Json.toJsonBytes(floorEntity), 0, false);
+                        }
+
                         // now publish update to state topic
                         var stateTopic = String.format(STATE_TOPIC_FMT, room.number());
                         var state = room.toState();

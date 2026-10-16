@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.10]
+
+- Added a floor temperature sensor for rooms whose thermostat is equipped with a floor sensor (e.g. Icon RT thermostats with a built-in infrared floor sensor), as requested in issue #42. The value is pushed by the Danfoss master and exposed as a `temperature_floor` attribute on the room state, and as a separate sensor published via MQTT discovery grouped with the thermostat device in Home Assistant. The sensor is only created for rooms that have reported a floor temperature (> 0°C); thermostats without a floor sensor get no floor entity.
+
 ## [0.4.9]
 
 - Added a battery level sensor for battery-powered (wireless) Icon thermostats, published via MQTT discovery and grouped with the thermostat device in Home Assistant. The sensor is only created for rooms that have reported a battery indication (> 0%); mains-powered thermostats get no battery entity.

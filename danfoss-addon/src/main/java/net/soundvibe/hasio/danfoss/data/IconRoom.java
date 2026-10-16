@@ -11,6 +11,7 @@ import static java.util.Map.entry;
 
 public record IconRoom(String name, int number, double temperature,
                        double temperatureHome, double temperatureAway, double temperatureSleep, double temperatureHigh, double temperatureLow,
+                       double temperatureFloor,
                        short batteryPercent, HeatingState mode, RoomMode roomMode) {
 
     /**
@@ -20,6 +21,16 @@ public record IconRoom(String name, int number, double temperature,
      */
     public boolean hasBattery() {
         return batteryPercent > 0;
+    }
+
+    /**
+     * The Danfoss master only pushes a floor temperature for thermostats equipped with a floor sensor
+     * (e.g. Icon RT thermostats with a built-in infrared floor sensor), so a reported value above 0°C
+     * identifies the room as floor-sensor equipped. Thermostats without a floor sensor never report
+     * a floor temperature and stay at the default 0°C.
+     */
+    public boolean hasFloorSensor() {
+        return temperatureFloor > 0;
     }
 
     public State toState() {
@@ -40,6 +51,7 @@ public record IconRoom(String name, int number, double temperature,
                 entry( "temperature_sleep", String.valueOf(temperatureSleep)),
                 entry( "temperature_high", String.valueOf(temperatureHigh)),
                 entry( "temperature_low", String.valueOf(temperatureLow)),
+                entry( "temperature_floor", String.valueOf(temperatureFloor)),
                 entry( "temperature_target", String.valueOf(temperatureTarget)),
                 entry("room_number", String.valueOf(number)),
                 entry("mode", mode.name().toLowerCase()),
@@ -76,6 +88,17 @@ public record IconRoom(String name, int number, double temperature,
                 stateTopic, "{{ value_json.attributes.availability }}",
                 stateTopic, "{{ value_json.attributes.battery_level }}",
                 "battery", "measurement", "%", "diagnostic");
+    }
+
+    public MQTTSensorEntity toMQTTFloorSensorEntity(String id, String stateTopicFmt, IconMaster iconMaster) {
+        var stateTopic = String.format(stateTopicFmt, number);
+        return new MQTTSensorEntity(id, STR."\{name} floor temperature",
+                Map.of("name", iconMaster.houseName(), "model", "Icon", "manufacturer", "Danfoss",
+                        "hw_version", iconMaster.hardwareRevision(), "sw_version", iconMaster.softwareRevision(),
+                        "identifiers", iconMaster.serialNumber()),
+                stateTopic, "{{ value_json.attributes.availability }}",
+                stateTopic, "{{ value_json.attributes.temperature_floor }}",
+                "temperature", "measurement", "°C", "diagnostic");
     }
 
     private static final List<String> MODES = List.of("off", "heat", "cool");
