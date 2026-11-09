@@ -59,9 +59,10 @@ public record IconRoom(String name, int number, double temperature,
         ));
     }
 
-    public MQTTClimateEntity toMQTTClimateEntity(String id, String stateTopicFmt, String setTopicFmt, IconMaster iconMaster) {
+    public MQTTClimateEntity toMQTTClimateEntity(String id, String stateTopicFmt, String setTopicFmt, String presetSetTopicFmt, IconMaster iconMaster) {
         var stateTopic = String.format(stateTopicFmt, number);
         var setTempTopic = String.format(setTopicFmt, number);
+        var presetSetTopic = String.format(presetSetTopicFmt, number);
         return new MQTTClimateEntity(id, name, MODES, temperatureLow, temperatureHigh, 0.5,
                 Map.of("name", iconMaster.houseName(), "model", "Icon", "manufacturer", "Danfoss",
                         "hw_version", iconMaster.hardwareRevision(), "sw_version", iconMaster.softwareRevision(),
@@ -69,7 +70,7 @@ public record IconRoom(String name, int number, double temperature,
                 stateTopic, "{{ value_json.attributes.availability }}",
                 stateTopic, "{{ value_json.state }}",
                 stateTopic, "{{ value_json.attributes.mode }}",
-                PRESET_MODES, setTempTopic,
+                PRESET_MODES, presetSetTopic,
                 stateTopic, "{{ value_json.attributes.preset }}",
                 setTempTopic, STR."""
                 { 'temperature_target': {{ value }}, 'room_number': \{number} }""", // set target temperature

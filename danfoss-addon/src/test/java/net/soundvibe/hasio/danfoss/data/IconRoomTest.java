@@ -97,6 +97,22 @@ class IconRoomTest {
     }
 
     @Test
+    void should_generate_climate_discovery_json_with_dedicated_preset_command_topic() {
+        var sut = new IconRoom("Living Room", 1, 22.3, 23.0, 21.0, 19.0,
+                30.0, 15.0, 24.5, (short) 99, HeatingState.OFF, RoomMode.HOME);
+        var iconMaster = new IconMaster("House", 21.0, 10.0, "1.0", "2.0", "12345", 1, 0, null);
+
+        var climate = sut.toMQTTClimateEntity("danfoss_icon_thermostat_room_1",
+                "danfoss/icon/%d/state", "danfoss/icon/%d/set", "danfoss/icon/%d/set/preset", iconMaster);
+
+        assertEquals("danfoss/icon/1/set/preset", climate.preset_mode_command_topic());
+        assertEquals("danfoss/icon/1/set", climate.temperature_command_topic());
+        assertEquals("danfoss/icon/1/state", climate.preset_mode_state_topic());
+        assertEquals("{{ value_json.attributes.preset }}", climate.preset_mode_value_template());
+        logger.info(Json.toJsonString(climate));
+    }
+
+    @Test
     void should_unmarshal_command() {
         var commandJson = """
                 {"command": "setHomeTemperature","value":"23.5","roomNumber":"0"}""";
