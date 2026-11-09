@@ -8,6 +8,7 @@ import net.soundvibe.hasio.danfoss.protocol.config.Icon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -122,7 +123,7 @@ public class IconRoomHandler implements PacketHandler {
                 lock.writeLock().unlock();
                 break;
             case ROOM_ROOMMODE:
-                setRoomMode(pkt.getByte());
+                updateRoomMode(pkt.getByte());
                 break;
             case ROOM_ROOMCONTROL:
                 lock.writeLock().lock();
@@ -183,7 +184,36 @@ public class IconRoomHandler implements PacketHandler {
         lock.writeLock().unlock();
     }
 
-    private void setRoomMode(byte mode) {
+    public void setRoomMode(RoomMode newRoomMode) {
+        var modeByte = switch (newRoomMode) {
+            case HOME -> Icon.RoomMode.AtHome;
+            case AWAY -> Icon.RoomMode.Away;
+            case SLEEP -> Icon.RoomMode.Asleep;
+            case FATAL -> Icon.RoomMode.Fatal;
+        };
+        this.connector.SendPacket(new Dominion.Packet(ROOM_FIRST + roomNumber, ROOM_ROOMMODE, modeByte));
+        updateRoomMode(modeByte);
+    }
+
+    /**
+     * Parses a preset payload published by Home Assistant to the preset command topic
+     * (e.g. {@code home}, {@code away}, {@code sleep}). Tolerates surrounding whitespace,
+     * surrounding double quotes and any letter case; empty Optional means the preset is unknown.
+     */
+    public static Optional<RoomMode> parsePreset(String payload) {
+        if (payload == null) {
+            return Optional.empty();
+        }
+        var preset = payload.strip().replace("\"", "").toLowerCase();
+        return switch (preset) {
+            case "home" -> Optional.of(RoomMode.HOME);
+            case "away" -> Optional.of(RoomMode.AWAY);
+            case "sleep" -> Optional.of(RoomMode.SLEEP);
+            default -> Optional.empty();
+        };
+    }
+
+    private void updateRoomMode(byte mode) {
         lock.writeLock().lock();
         try {
             switch (mode) {

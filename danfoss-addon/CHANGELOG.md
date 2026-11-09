@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.11]
+
+- Fixed error when selecting a preset (Home/Away/Sleep) in Home Assistant, reported in issue #43. Home Assistant publishes the preset as a plain string, but the add-on expected a JSON payload on the shared set topic, so the command failed with a `JsonSyntaxException` and was silently dropped. Preset commands now use a dedicated MQTT topic (`danfoss/icon/<room>/set/preset`, advertised via MQTT discovery) and send a room mode write to the Danfoss master, so selecting a preset actually switches the thermostat to that mode.
+
 ## [0.4.10]
 
 - Added a floor temperature sensor for rooms whose thermostat is equipped with a floor sensor (e.g. Icon RT thermostats with a built-in infrared floor sensor), as requested in issue #42. The value is pushed by the Danfoss master and exposed as a `temperature_floor` attribute on the room state, and as a separate sensor published via MQTT discovery grouped with the thermostat device in Home Assistant. The sensor is only created for rooms that have reported a floor temperature (> 0°C); thermostats without a floor sensor get no floor entity.

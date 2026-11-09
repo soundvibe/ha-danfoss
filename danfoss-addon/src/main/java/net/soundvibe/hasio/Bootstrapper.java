@@ -188,7 +188,7 @@ public class Bootstrapper {
                         // first publish climate device
                         var thermostatID = STR."danfoss_icon_thermostat_room_\{room.number()}";
                         var entityTopic = STR."homeassistant/climate/\{thermostatID}/config";
-                        var climateEntity = room.toMQTTClimateEntity(thermostatID, STATE_TOPIC_FMT, SET_TOPIC_FMT, iconMaster);
+                        var climateEntity = room.toMQTTClimateEntity(thermostatID, STATE_TOPIC_FMT, SET_TOPIC_FMT, PRESET_SET_TOPIC_FMT, iconMaster);
                         mqttClient.publish(entityTopic, Json.toJsonBytes(climateEntity), 0, false);
 
                         // publish battery sensor for battery-powered (wireless) thermostats
@@ -212,7 +212,7 @@ public class Bootstrapper {
                         var state = room.toState();
                         mqttClient.publish(stateTopic, Json.toJsonBytes(state), 0, false);
 
-                        // and finally subscribe to set topic
+                        // and finally subscribe to set topics
                         var setTopic = String.format(SET_TOPIC_FMT, room.number());
                         var mqttToken = subscribeToTopic(setTopic, mqttClient);
                         if (!mqttToken.isComplete()) {
@@ -220,6 +220,15 @@ public class Bootstrapper {
                             mqttClient.unsubscribe(setTopic);
                             subscribers.remove(setTopic);
                             logger.info("MQTT subscriber removed = {}", setTopic);
+                        }
+
+                        var presetSetTopic = String.format(PRESET_SET_TOPIC_FMT, room.number());
+                        var presetToken = subscribeToPresetTopic(presetSetTopic, room.number(), mqttClient);
+                        if (!presetToken.isComplete()) {
+                            //force resubscribe
+                            mqttClient.unsubscribe(presetSetTopic);
+                            subscribers.remove(presetSetTopic);
+                            logger.info("MQTT subscriber removed = {}", presetSetTopic);
                         }
                     }
                     logger.info("MQTT sensors updated successfully");
@@ -234,32 +243,54 @@ public class Bootstrapper {
     }
 
     private IMqttToken subscribeToTopic(String setTopic, MqttClient mqttClient) {
-        return subscribers.compute(setTopic, (key, listener) -> {
-            if (listener != null) {
-                return listener;
-            }
-
-            IMqttMessageListener newListener = (_, message) -> {
-                try {
-                    var setState = Json.fromString(message.toString(), MQTTSetState.class);
-                    // get room preset
-                    masterHandler.get().roomHandlerByNumber(setState.room_number())
-                            .map(IconRoomHandler::toIconRoom)
-                            .map(room -> switch (room.roomMode()) {
-                                case HOME -> "setHomeTemperature";
-                                case AWAY -> "setAwayTemperature";
-                                case SLEEP -> "setSleepTemperature";
-                                default -> "";
-                            })
-                            .filter(not(String::isEmpty))
-                            .map(cmdName -> new Command(cmdName, setState.room_number(), setState.temperature_target()))
-                            .ifPresent(this::executeCommand);
-                } catch (Throwable e) {
-                    logger.warn("got error on topic listener", e);
-                }
-            };
+        IMqttMessageListener newListener = (_, message) -> {
             try {
-                var token = mqttClient.subscribeWithResponse(key, newListener);
+                var setState = Json.fromString(message.toString(), MQTTSetState.class);
+                // get room preset
+                masterHandler.get().roomHandlerByNumber(setState.room_number())
+                        .map(IconRoomHandler::toIconRoom)
+                        .map(room -> switch (room.roomMode()) {
+                            case HOME -> "setHomeTemperature";
+                            case AWAY -> "setAwayTemperature";
+                            case SLEEP -> "setSleepTemperature";
+                            default -> "";
+                        })
+                        .filter(not(String::isEmpty))
+                        .map(cmdName -> new Command(cmdName, setState.room_number(), setState.temperature_target()))
+                        .ifPresent(this::executeCommand);
+            } catch (Throwable e) {
+                logger.warn("got error on topic listener", e);
+            }
+        };
+        return subscribe(setTopic, newListener, mqttClient);
+    }
+
+    private IMqttToken subscribeToPresetTopic(String presetTopic, int roomNumber, MqttClient mqttClient) {
+        IMqttMessageListener newListener = (_, message) -> {
+            try {
+                var maybeRoomMode = IconRoomHandler.parsePreset(message.toString());
+                if (maybeRoomMode.isEmpty()) {
+                    logger.warn("unknown preset: {}", message);
+                    return;
+                }
+                var roomMode = maybeRoomMode.get();
+                masterHandler.get().roomHandlerByNumber(roomNumber)
+                        .ifPresentOrElse(roomHandler -> roomHandler.setRoomMode(roomMode),
+                                () -> logger.warn("room not found: {}", roomNumber));
+            } catch (Throwable e) {
+                logger.warn("got error on preset topic listener", e);
+            }
+        };
+        return subscribe(presetTopic, newListener, mqttClient);
+    }
+
+    private IMqttToken subscribe(String topic, IMqttMessageListener listener, MqttClient mqttClient) {
+        return subscribers.compute(topic, (key, existing) -> {
+            if (existing != null) {
+                return existing;
+            }
+            try {
+                var token = mqttClient.subscribeWithResponse(key, listener);
                 if (token.getException() != null) {
                     throw token.getException();
                 }
@@ -274,4 +305,5 @@ public class Bootstrapper {
 
     private static final String STATE_TOPIC_FMT = "danfoss/icon/%d/state";
     private static final String SET_TOPIC_FMT = "danfoss/icon/%d/set";
+    private static final String PRESET_SET_TOPIC_FMT = "danfoss/icon/%d/set/preset";
 }
