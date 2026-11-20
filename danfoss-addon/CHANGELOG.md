@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.12]
+
+- Added support for sharing a house from the Danfoss Icon iOS app, while retaining the existing Android pairing flow. Discovery now accepts the incoming configuration connection used by iOS alongside the outgoing connection used by Android.
+- Hardened pairing and discovery with bounded incoming-call queues and configuration sizes, client nonce ordering, complete socket operation deadlines, and reliable cancellation and connection cleanup. Added protocol, concurrency, framing, and configuration-reader regression tests.
+- Updated the pairing documentation to cover both Android and iOS.
+
 ## [0.4.11]
 
 - Fixed error when selecting a preset (Home/Away/Sleep) in Home Assistant, reported in issue #43. Home Assistant publishes the preset as a plain string, but the add-on expected a JSON payload on the shared set topic, so the command failed with a `JsonSyntaxException` and was silently dropped. Preset commands now use a dedicated MQTT topic (`danfoss/icon/<room>/set/preset`, advertised via MQTT discovery) and send a room mode write to the Danfoss master, so selecting a preset actually switches the thermostat to that mode.
