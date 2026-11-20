@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -194,6 +195,65 @@ class IncomingPeerConnectionTest {
         assertThrows(SocketTimeoutException.class, () -> sut.accept(peerInfo(), 500));
         long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
         assertTrue(elapsedMillis >= 450 && elapsedMillis < 3_000, "took " + elapsedMillis + " ms");
+    }
+
+    @Test
+    void should_enforce_the_deadline_when_a_frame_trickles_in_byte_by_byte() {
+        remote(socket -> {
+            readForwardRequest(socket);
+            var out = socket.getOutputStream();
+            out.write(new byte[]{1, 0});    // a frame of 256 bytes is announced...
+            out.flush();
+            while (!Thread.currentThread().isInterrupted()) {
+                out.write(HOLD);            // ...and arrives one byte at a time, each well within any read timeout
+                out.flush();
+                Thread.sleep(50);
+            }
+            return null;
+        });
+
+        long start = System.nanoTime();
+        assertThrows(SocketTimeoutException.class, () -> sut.accept(peerInfo(), 500));
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+        assertTrue(elapsedMillis >= 450 && elapsedMillis < 3_000, "took " + elapsedMillis + " ms");
+    }
+
+    @Test
+    void should_enforce_the_deadline_on_a_blocked_write() throws Exception {
+        forwardingServer.setReceiveBufferSize(4096);
+        var neverReadAgain = new CountDownLatch(1);
+        remote(socket -> {
+            acceptForwarding(socket);
+            new TestMdgClient(socket).handshake();
+            neverReadAgain.await();         // the peer stays connected but stops reading
+            return null;
+        });
+        sut.accept(peerInfo(), 1_000);
+        var payload = new byte[IncomingPeerConnection.MAX_PAYLOAD_SIZE];
+
+        long start = System.nanoTime();
+        assertThrows(SocketTimeoutException.class, () -> {
+            for (int i = 0; i < 2_000; i++) {
+                sut.sendData(payload);      // fills the socket buffers until a write blocks
+            }
+        });
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+        assertTrue(elapsedMillis >= 950 && elapsedMillis < 30_000, "took " + elapsedMillis + " ms");
+    }
+
+    @Test
+    void should_time_out_when_the_peer_sends_no_data() throws Exception {
+        remote(socket -> {
+            acceptForwarding(socket);
+            new TestMdgClient(socket).handshake();
+            return waitForClose(socket);
+        });
+        sut.accept(peerInfo(), 1_000);
+
+        long start = System.nanoTime();
+        assertThrows(SocketTimeoutException.class, () -> sut.receiveData());
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+        assertTrue(elapsedMillis >= 950 && elapsedMillis < 4_000, "took " + elapsedMillis + " ms");
     }
 
     @Test
