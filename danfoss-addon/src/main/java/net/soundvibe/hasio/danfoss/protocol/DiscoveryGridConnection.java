@@ -3,6 +3,7 @@ package net.soundvibe.hasio.danfoss.protocol;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import io.github.sonic_amiga.opensdg.java.GridConnection;
+import io.github.sonic_amiga.opensdg.protocol.Control;
 import io.github.sonic_amiga.opensdg.protocol.generated.ControlProtocol.IncomingCall;
 import io.github.sonic_amiga.opensdg.protocol.generated.ControlProtocol.IncomingCallReply;
 import org.slf4j.Logger;
@@ -12,10 +13,11 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -37,13 +39,14 @@ public class DiscoveryGridConnection extends GridConnection {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryGridConnection.class);
 
-    static final byte MSG_INCOMING_CALL = 12;
-    static final byte MSG_INCOMING_CALL_REPLY = 13;
     static final byte MSG_PAIRINGS_REPLY = 21;
     static final byte MSG_PAIRINGS = 22;
+    /** Discovery expects a single call from the sender; anything beyond a few candidates is refused. */
+    static final int MAX_PENDING_CALLS = 4;
 
-    private final BlockingQueue<IncomingCall> incomingCalls = new LinkedBlockingQueue<>();
-    private volatile boolean acceptingCalls = true;
+    private final Object callsLock = new Object();
+    private final BlockingQueue<IncomingCall> incomingCalls = new ArrayBlockingQueue<>(MAX_PENDING_CALLS);
+    private boolean acceptingCalls = true;      // guarded by callsLock
     private int pairingsSequence;
 
     public DiscoveryGridConnection(byte[] key, ScheduledExecutorService scheduler) {
@@ -56,14 +59,13 @@ public class DiscoveryGridConnection extends GridConnection {
     public synchronized void registerPairings(List<byte[]> peerIds)
             throws IOException, InterruptedException, ExecutionException, TimeoutException {
         var bytes = new ByteArrayOutputStream();
-        bytes.write(MSG_PAIRINGS);
         var out = CodedOutputStream.newInstance(bytes);
         out.writeUInt32(1, pairingsSequence++);
         for (var peerId : peerIds) {
             out.writeBytes(2, ByteString.copyFrom(peerId));
         }
         out.flush();
-        tunnel.sendData(bytes.toByteArray());
+        sendControl(MSG_PAIRINGS, bytes.toByteArray());
         logger.debug("Registered {} pairing(s) with the grid", peerIds.size());
     }
 
@@ -81,21 +83,20 @@ public class DiscoveryGridConnection extends GridConnection {
                 .setResult(accept ? 1 : 0)
                 .build()
                 .toByteArray();
-        var message = new byte[reply.length + 1];
-        message[0] = MSG_INCOMING_CALL_REPLY;
-        System.arraycopy(reply, 0, message, 1, reply.length);
-        tunnel.sendData(message);
+        sendControl(Control.MSG_INCOMING_CALL_REPLY, reply);
     }
 
     /**
      * Refuses all queued and future incoming calls, so that callers get an answer instead of a timeout.
+     * Once this method returns, no call can be left waiting in the queue.
      */
     public void stopAcceptingCalls() {
-        acceptingCalls = false;
-        IncomingCall call;
-        while ((call = incomingCalls.poll()) != null) {
-            refuseQuietly(call);
+        var pending = new ArrayList<IncomingCall>();
+        synchronized (callsLock) {
+            acceptingCalls = false;
+            incomingCalls.drainTo(pending);
         }
+        pending.forEach(this::refuseQuietly);
     }
 
     @Override
@@ -104,12 +105,15 @@ public class DiscoveryGridConnection extends GridConnection {
         var in = data.markSupported() ? data : new BufferedInputStream(data);
         in.mark(Integer.MAX_VALUE);
         int msgType = in.read();
-        if (msgType == MSG_INCOMING_CALL) {
+        if (msgType == Control.MSG_INCOMING_CALL) {
             var call = IncomingCall.parseFrom(in);
             logger.info("Incoming call from peer {} (protocol {})", call.getPeer().getPeerId(), call.getProtocol());
-            if (acceptingCalls) {
-                incomingCalls.offer(call);
-            } else {
+            boolean queued;
+            synchronized (callsLock) {
+                // the decision and the insertion are one step, so stopAcceptingCalls() cannot slip in between
+                queued = acceptingCalls && enqueue(call);
+            }
+            if (!queued) {
                 refuseQuietly(call);
             }
         } else if (msgType == MSG_PAIRINGS_REPLY) {
@@ -120,9 +124,30 @@ public class DiscoveryGridConnection extends GridConnection {
         }
     }
 
+    /**
+     * Adds a call to the bounded queue; false when the queue is full. Always called with the calls
+     * lock held. Separate method so that a test can pause exactly between the decision and the insertion.
+     */
+    boolean enqueue(IncomingCall call) {
+        return incomingCalls.offer(call);
+    }
+
+    /**
+     * Sends one control message (type byte followed by the protobuf body) to the grid.
+     */
+    protected void sendControl(byte type, byte[] body)
+            throws IOException, InterruptedException, ExecutionException, TimeoutException {
+        var message = new byte[body.length + 1];
+        message[0] = type;
+        System.arraycopy(body, 0, message, 1, body.length);
+        tunnel.sendData(message);
+    }
+
     private void refuseQuietly(IncomingCall call) {
         try {
             replyToIncomingCall(call, false);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             logger.debug("Failed to refuse incoming call {}: {}", call.getId(), e.toString());
         }

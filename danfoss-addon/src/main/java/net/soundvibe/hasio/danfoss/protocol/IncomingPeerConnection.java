@@ -3,6 +3,7 @@ package net.soundvibe.hasio.danfoss.protocol;
 import com.google.protobuf.ByteString;
 import com.neilalexander.jnacl.crypto.curve25519xsalsa20poly1305;
 import io.github.sonic_amiga.opensdg.java.SDG;
+import io.github.sonic_amiga.opensdg.protocol.Control;
 import io.github.sonic_amiga.opensdg.protocol.generated.ControlProtocol.PeerInfo;
 import io.github.sonic_amiga.opensdg.protocol.generated.ForwardProtocol;
 
@@ -14,11 +15,13 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ProtocolException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The accepting side of a peer-to-peer tunnel, used when a remote peer calls us (grid message 12).
@@ -26,6 +29,10 @@ import java.util.Arrays;
  * opensdg-java only implements the calling side of the MDG binary protocol (a CurveCP variant).
  * This class is its mirror image: after joining the forwarded tunnel it answers TELL with WELC,
  * HELO with COOK and VOCH with REDY, and then exchanges MESG packets.
+ * <p>
+ * Like CurveCP, the caller numbers its packets (HELO, VOCH, MESG) with a strictly increasing nonce.
+ * Packets with a repeated or lower nonce are rejected, so a captured packet cannot be replayed
+ * into the same session.
  */
 final class IncomingPeerConnection implements AutoCloseable {
 
@@ -45,7 +52,7 @@ final class IncomingPeerConnection implements AutoCloseable {
     private static final int CMD_REDY = command("REDY");
     private static final int CMD_MESG = command("MESG");
 
-    private static final int KEY_SIZE = 32;
+    private static final int KEY_SIZE = SDG.KEY_SIZE;
     private static final int MAC_SIZE = 16;
     private static final int BOX_ZERO_BYTES = 16;
     private static final int ZERO_BYTES = 32;
@@ -54,6 +61,15 @@ final class IncomingPeerConnection implements AutoCloseable {
     private static final int COOKIE_SIZE = 96;
     private static final int HELO_BOX_SIZE = 80;
     private static final int VOUCH_BOX_SIZE = MAC_SIZE + KEY_SIZE;
+
+    /** Every frame starts with a 16-bit length, so this is the largest frame body. */
+    private static final int MAX_FRAME_SIZE = 0xffff;
+    /** Magic and command that precede the data of every MDG packet. */
+    private static final int PACKET_HEADER_SIZE = 8;
+    private static final int MESG_LENGTH_SIZE = 2;
+    /** The largest payload that still fits into a single MESG frame (65,501 bytes). */
+    static final int MAX_PAYLOAD_SIZE =
+            MAX_FRAME_SIZE - PACKET_HEADER_SIZE - SHORT_NONCE_SIZE - MAC_SIZE - MESG_LENGTH_SIZE;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -64,6 +80,8 @@ final class IncomingPeerConnection implements AutoCloseable {
     private OutputStream out;
     private byte[] sharedKey;
     private long nonce;
+    private boolean peerNonceSeen;
+    private long lastPeerNonce;
 
     IncomingPeerConnection(byte[] privateKey) {
         this.privateKey = privateKey.clone();
@@ -72,23 +90,27 @@ final class IncomingPeerConnection implements AutoCloseable {
 
     /**
      * Joins the tunnel announced in an accepted incoming call and completes the handshake.
+     * The timeout covers the whole operation: HOLD packets from the forwarding server do not extend it.
      *
      * @return peer ID (public key) of the caller
      */
     byte[] accept(PeerInfo peer, int timeoutMillis) throws IOException {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         socket.connect(new InetSocketAddress(peer.getServer().getHost(), peer.getServer().getPort()), timeoutMillis);
-        socket.setSoTimeout(timeoutMillis);
         in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
         out = socket.getOutputStream();
-        forward(peer.getTunnelId());
-        return handshake();
+        forward(peer.getTunnelId(), deadline);
+        var caller = handshake(deadline);
+        socket.setSoTimeout(timeoutMillis);
+        return caller;
     }
 
     void sendData(byte[] payload) throws IOException {
-        if (payload.length > 0xffff) {
-            throw new IllegalArgumentException("Packet too long: " + payload.length);
+        if (payload.length > MAX_PAYLOAD_SIZE) {
+            throw new IllegalArgumentException(
+                    "Payload of " + payload.length + " bytes exceeds the limit of " + MAX_PAYLOAD_SIZE);
         }
-        var plain = ByteBuffer.allocate(2 + payload.length);
+        var plain = ByteBuffer.allocate(MESG_LENGTH_SIZE + payload.length);
         plain.putShort((short) payload.length);
         plain.put(payload);
         writePacket(CMD_MESG, encryptWithNonce("CurveCP-server-M", plain.array()));
@@ -104,18 +126,22 @@ final class IncomingPeerConnection implements AutoCloseable {
         } catch (EOFException e) {
             return null;
         }
-        expect(packet, CMD_MESG, SHORT_NONCE_SIZE + MAC_SIZE + 2);
+        expect(packet, CMD_MESG, SHORT_NONCE_SIZE + MAC_SIZE + MESG_LENGTH_SIZE);
         var data = packet.data();
         long packetNonce = ByteBuffer.wrap(data, 0, SHORT_NONCE_SIZE).getLong();
         var plain = openAfterNm(Arrays.copyOfRange(data, SHORT_NONCE_SIZE, data.length),
                 shortNonce("CurveCP-client-M", packetNonce));
-        int length = ByteBuffer.wrap(plain, 0, 2).getShort() & 0xffff;
-        if (length > plain.length - 2) {
+        acceptPeerNonce(packetNonce);
+        int length = ByteBuffer.wrap(plain, 0, MESG_LENGTH_SIZE).getShort() & 0xffff;
+        if (length > plain.length - MESG_LENGTH_SIZE) {
             throw new ProtocolException("Invalid MESG payload length " + length);
         }
-        return Arrays.copyOfRange(plain, 2, 2 + length);
+        return Arrays.copyOfRange(plain, MESG_LENGTH_SIZE, MESG_LENGTH_SIZE + length);
     }
 
+    /**
+     * Closes the socket. Safe to call from another thread: it unblocks pending reads and writes.
+     */
     @Override
     public void close() {
         try {
@@ -125,11 +151,11 @@ final class IncomingPeerConnection implements AutoCloseable {
         }
     }
 
-    private void forward(ByteString tunnelId) throws IOException {
+    private void forward(ByteString tunnelId, long deadline) throws IOException {
         var request = ForwardProtocol.ForwardRequest.newBuilder()
                 .setMagic(FORWARD_MAGIC)
-                .setProtocolMajor(1)
-                .setProtocolMinor(0)
+                .setProtocolMajor(Control.PROTOCOL_VERSION_MAJOR)
+                .setProtocolMinor(Control.PROTOCOL_VERSION_MINOR)
                 .setTunnelId(tunnelId)
                 .setSignature(FORWARD_SIGNATURE)
                 .build()
@@ -142,11 +168,14 @@ final class IncomingPeerConnection implements AutoCloseable {
         out.flush();
 
         while (true) {
-            var reply = readFrame();
+            var reply = readFrame(deadline);
+            if (reply.length == 0) {
+                throw new ProtocolException("Forwarding packet too short");
+            }
             var payload = Arrays.copyOfRange(reply, 1, reply.length);
             switch (reply[0]) {
                 case MSG_FORWARD_HOLD -> {
-                    // the other side has not joined yet, keep waiting
+                    // the other side has not joined yet, keep waiting (until the deadline)
                 }
                 case MSG_FORWARD_REPLY -> {
                     var signature = ForwardProtocol.ForwardReply.parseFrom(payload).getSignature();
@@ -162,11 +191,11 @@ final class IncomingPeerConnection implements AutoCloseable {
         }
     }
 
-    private byte[] handshake() throws IOException {
-        var packet = readPacket();
+    private byte[] handshake(long deadline) throws IOException {
+        var packet = readPacket(deadline);
         if (packet.command() == CMD_TELL) {
             writePacket(CMD_WELC, publicKey);
-            packet = readPacket();
+            packet = readPacket(deadline);
         }
 
         // HELO: client's short-term key, nonce and a box of zeros
@@ -176,6 +205,7 @@ final class IncomingPeerConnection implements AutoCloseable {
         long heloNonce = ByteBuffer.wrap(helo, KEY_SIZE, SHORT_NONCE_SIZE).getLong();
         open(Arrays.copyOfRange(helo, KEY_SIZE + SHORT_NONCE_SIZE, KEY_SIZE + SHORT_NONCE_SIZE + HELO_BOX_SIZE),
                 shortNonce("CurveCP-client-H", heloNonce), clientShortTermKey, privateKey);
+        acceptPeerNonce(heloNonce);
 
         // COOK: our short-term key and a cookie, boxed with our long-term key
         var shortTermPublic = new byte[KEY_SIZE];
@@ -188,7 +218,7 @@ final class IncomingPeerConnection implements AutoCloseable {
         writePacket(CMD_COOK, concat(cookNonce, cookBox));
 
         // VOCH: cookie, then the client's long-term key with a vouch for its short-term key
-        packet = readPacket();
+        packet = readPacket(deadline);
         expect(packet, CMD_VOCH, COOKIE_SIZE + SHORT_NONCE_SIZE + MAC_SIZE + KEY_SIZE + LONG_NONCE_SIZE + VOUCH_BOX_SIZE);
         var voch = packet.data();
         if (!MessageDigest.isEqual(cookie, Arrays.copyOfRange(voch, 0, COOKIE_SIZE))) {
@@ -199,6 +229,7 @@ final class IncomingPeerConnection implements AutoCloseable {
         long vochNonce = ByteBuffer.wrap(voch, COOKIE_SIZE, SHORT_NONCE_SIZE).getLong();
         var vouch = openAfterNm(Arrays.copyOfRange(voch, COOKIE_SIZE + SHORT_NONCE_SIZE, voch.length),
                 shortNonce("CurveCP-client-I", vochNonce));
+        acceptPeerNonce(vochNonce);
         var clientKey = Arrays.copyOfRange(vouch, 0, KEY_SIZE);
         var innerNonce = Arrays.copyOfRange(vouch, KEY_SIZE, KEY_SIZE + LONG_NONCE_SIZE);
         var innerBox = Arrays.copyOfRange(vouch, KEY_SIZE + LONG_NONCE_SIZE, KEY_SIZE + LONG_NONCE_SIZE + VOUCH_BOX_SIZE);
@@ -213,6 +244,18 @@ final class IncomingPeerConnection implements AutoCloseable {
         return clientKey;
     }
 
+    /**
+     * The caller's nonces must strictly increase from HELO through VOCH to every MESG.
+     * Called only after the packet has been authenticated.
+     */
+    private void acceptPeerNonce(long packetNonce) throws ProtocolException {
+        if (peerNonceSeen && Long.compareUnsigned(packetNonce, lastPeerNonce) <= 0) {
+            throw new ProtocolException("Replayed or out-of-order packet nonce " + Long.toUnsignedString(packetNonce));
+        }
+        peerNonceSeen = true;
+        lastPeerNonce = packetNonce;
+    }
+
     private byte[] encryptWithNonce(String prefix, byte[] plain) throws ProtocolException {
         long packetNonce = nonce++;
         var box = sealAfterNm(plain, shortNonce(prefix, packetNonce));
@@ -223,8 +266,11 @@ final class IncomingPeerConnection implements AutoCloseable {
     }
 
     private void writePacket(int command, byte[] data) throws IOException {
-        var packet = ByteBuffer.allocate(10 + data.length);
-        packet.putShort((short) (8 + data.length));
+        if (data.length > MAX_FRAME_SIZE - PACKET_HEADER_SIZE) {
+            throw new ProtocolException("Packet " + commandName(command) + " of " + data.length + " bytes does not fit into a frame");
+        }
+        var packet = ByteBuffer.allocate(2 + PACKET_HEADER_SIZE + data.length);
+        packet.putShort((short) (PACKET_HEADER_SIZE + data.length));
         packet.putInt(PACKET_MAGIC);
         packet.putInt(command);
         packet.put(data);
@@ -232,9 +278,16 @@ final class IncomingPeerConnection implements AutoCloseable {
         out.flush();
     }
 
+    private Packet readPacket(long deadline) throws IOException {
+        return toPacket(readFrame(deadline));
+    }
+
     private Packet readPacket() throws IOException {
-        var frame = readFrame();
-        if (frame.length < 8) {
+        return toPacket(readFrame());
+    }
+
+    private static Packet toPacket(byte[] frame) throws ProtocolException {
+        if (frame.length < PACKET_HEADER_SIZE) {
             throw new ProtocolException("Packet too short");
         }
         var buffer = ByteBuffer.wrap(frame);
@@ -242,7 +295,17 @@ final class IncomingPeerConnection implements AutoCloseable {
             throw new ProtocolException("Bad packet magic");
         }
         int command = buffer.getInt();
-        return new Packet(command, Arrays.copyOfRange(frame, 8, frame.length));
+        return new Packet(command, Arrays.copyOfRange(frame, PACKET_HEADER_SIZE, frame.length));
+    }
+
+    /** Reads one frame, waiting no longer than until the absolute deadline. */
+    private byte[] readFrame(long deadline) throws IOException {
+        long leftMillis = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+        if (leftMillis <= 0) {
+            throw new SocketTimeoutException("Timed out waiting for the caller");
+        }
+        socket.setSoTimeout((int) Math.min(leftMillis, Integer.MAX_VALUE));
+        return readFrame();
     }
 
     private byte[] readFrame() throws IOException {
@@ -262,7 +325,7 @@ final class IncomingPeerConnection implements AutoCloseable {
         }
     }
 
-    private byte[] seal(byte[] plain, byte[] boxNonce, byte[] theirKey, byte[] ourKey) throws ProtocolException {
+    private static byte[] seal(byte[] plain, byte[] boxNonce, byte[] theirKey, byte[] ourKey) throws ProtocolException {
         var buffer = new byte[ZERO_BYTES + plain.length];
         System.arraycopy(plain, 0, buffer, ZERO_BYTES, plain.length);
         if (curve25519xsalsa20poly1305.crypto_box(buffer, buffer, boxNonce, theirKey, ourKey) != 0) {
